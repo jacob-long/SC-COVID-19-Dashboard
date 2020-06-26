@@ -1,0 +1,409 @@
+---
+title: "COVID-19 in South Carolina"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: fill
+    theme: flatly
+    css: sc_dash.css
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(jtools)
+library(extrafont)
+library(ggplot2)
+library(lubridate)
+library(plotly)
+
+extrafont::font_import("./IBM-Plex-Sans")
+
+states <- read_csv("http://covidtracking.com/api/states/daily.csv") %>%
+  mutate(
+    date = lubridate::as_date(as.character(date))
+  ) %>%
+  bind_rows(mutate(read_csv("https://covidtracking.com/api/v1/states/current.csv"), date = lubridate::today())) %>%
+  # filter(state %in% c("NY", "CO", "FL", "MA", "MN", "CA", "VA", "PA")) %>%
+  arrange(state, date) %>%
+  group_by(state) %>%
+  filter(date != lag(date), positive != lag(positive)) %>%
+  mutate(
+    new_positives = positive - lag(positive),
+    tests = positive + negative,
+    icu = inIcuCurrently,
+    hospital = hospitalizedCurrently,
+    deaths = death,
+    new_tests = tests - lag(tests),
+    new_hospital = hospital - lag(hospital),
+    new_hospital2 = hospitalizedCurrently - lag(hospitalizedCurrently),
+    new_deaths = death - lag(death),
+    new_icu = icu - lag(icu),
+    new_icu2 = inIcuCumulative - lag(inIcuCumulative),
+    new_icu = case_when(
+      is.na(icu) & !is.na(onVentilatorCurrently) ~ onVentilatorCurrently - lag(onVentilatorCurrently),
+      TRUE ~ new_icu
+    ),
+    new_icu2 = case_when(
+      is.na(inIcuCumulative) & !is.na(onVentilatorCumulative) ~ onVentilatorCumulative - lag(onVentilatorCumulative),
+      TRUE ~ new_icu2
+    ),
+    pos_rate = new_positives/new_tests,
+  )
+
+sc <- filter(states, state == "SC")
+sc$new_deaths[sc$date > as.Date("2020-03-05") & sc$date < as.Date("2020-03-17")] <- 0
+sc$reporting_backlog <- FALSE
+sc$reporting_backlog[sc$date < as.Date("2020-05-01") & sc$new_deaths > 40] <- TRUE
+
+two_weeks <- function(x) {
+  seq(x[1], x[2], 14)
+}
+
+into_date <- function(x) {
+  if ("Date" %in% class(x)) {
+    format(x, "%b %e")
+  } else {
+    format(as.Date(x, origin = "1970-01-01"), "%b %e")
+  }
+}
+
+num_points <- as.numeric(range(filter(states, state == "SC")$date)[2] - 
+  range(filter(states, state == "SC")$date)[1])
+
+```
+
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### Cases and Tests
+
+```{r}
+ggplot(states %>% filter(state == "SC") %>%
+         pivot_longer(c(new_tests, new_positives), names_to = "test_type") %>%
+         mutate(test_type = ifelse(test_type == "new_positives",
+                                   yes = "Positives", no = "Total")),
+       aes(x = date, y = value, colour = test_type)) +
+  geom_smooth(se = F, n = num_points) +
+  geom_point(aes(text = paste(
+    "Date:", date,
+    "\nNumber:", value
+    )
+  )) +
+  theme_nice(base_family = "IBM Plex Sans") +
+  ylab("Number of tests/day") +
+  scale_colour_manual(name = NULL, values = c("#49b7fc", "#ff7b00"),
+                      breaks = c("Positives", "Total"),
+                      labels = c("Positive tests", "Total tests"),
+                      guide = NULL) +
+  xlab("Date") +
+  scale_y_log10(labels = scales::label_number(accuracy = 1, big.mark = ","),
+                limits = c(1, 50000)) +
+  geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
+             linetype = "dashed", color = "#73000a") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
+             linetype = "dashed", color = "#ff0015") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_continuous(breaks = two_weeks, labels = into_date) +
+  ggtitle("Cases and Testing") -> tests
+
+gtests <- ggplotly(tests, tooltip = c("text")) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-03-15"))),
+    y = c(4),
+    text = c("Schools closed"),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#ff6673"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-03-31"))),
+    y = c(4.5),
+    text = c("Businesses closed"),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#ff0015"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-04-07"))),
+    y = c(0.5),
+    text = c( '"Home or Work"\norder'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-05-04"))),
+    y = c(0.5),
+    text = c('"Home or Work"\norder lifted'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  layout(legend = list(x = 0.8, y = 0.1)) 
+
+smooth1 <- paste0(
+  "Date: ", as.Date(round(gtests$x$data[[1]]$x), origin = "1970-01-01"), "\n",
+  "Rolling average number of positives: ", round(10^gtests$x$data[[1]]$y)
+)
+smooth2 <- paste0(
+  "Date: ", as.Date(round(gtests$x$data[[2]]$x), origin = "1970-01-01"), "\n",
+  "Rolling average number of positives: ", round(10^gtests$x$data[[2]]$y)
+)
+
+gtests <- gtests %>% 
+  style(text = smooth1, traces = 1) %>%
+  style(text = smooth2, traces = 2)
+
+font <- list(
+  family = "IBM Plex Sans",
+  size = 15,
+  color = "white"
+)
+label <- list(
+  bgcolor = "#232F34",
+  bordercolor = "transparent",
+  font = font
+)
+
+gtests <- gtests %>% 
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(hovermode = "x")
+
+gtests
+```
+
+### Positive Test %
+
+```{r}
+ggplot(filter(states, state == "SC"), aes(x = date, y = pos_rate)) +
+  geom_point(aes(text = paste(
+    "Date:", date,
+    "\nPercentage positive =", paste0(round(pos_rate * 100, 1), "%")
+    )
+  )) + 
+  geom_smooth(se = F, color = "black", n = num_points) +
+  theme_nice(base_family = "IBM Plex Sans") +
+  ylab("% of tests that are positive") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, .25)) +
+  xlab("Date") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
+             linetype = "dashed", color = "#73000a") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
+             linetype = "dashed", color = "#ff0015") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
+             linetype = "dashed", color = "#ff6673") +
+  # scale_x_date(date_breaks = "14 days", date_labels = "%b %e") +
+  scale_x_continuous(breaks = two_weeks, labels = into_date) +
+  ggtitle("Positive test rate") -> pos_rate
+
+gpos <- ggplotly(pos_rate, tooltip = c("text"))
+
+font <- list(
+  family = "IBM Plex Sans",
+  size = 15,
+  color = "white"
+)
+label <- list(
+  bgcolor = "#232F34",
+  bordercolor = "transparent",
+  font = font
+)
+
+
+smooth1 <- paste0(
+  "Date: ", as.Date(round(gpos$x$data[[2]]$x), origin = "1970-01-01"), "\n",
+  "Rolling average % positive = ", round(gpos$x$data[[2]]$y * 100, 1), "%"
+)
+
+gpos <- gpos %>% 
+  style(text = smooth1, traces = 2) %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(hovermode = "x")
+
+gpos
+
+```
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### Deaths
+
+```{r}
+ggplot(sc, aes(x = date, y = new_deaths)) +
+  geom_point(aes(text = paste(
+    "Date:", date,
+    "\nDeaths =", new_deaths
+    )
+  )) + 
+  geom_smooth(se = F, color = "black", n = num_points) +
+  theme_nice(base_family = "IBM Plex Sans") +
+  ylab("Deaths") +
+  xlab("Date") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
+             linetype = "dashed", color = "#73000a") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
+             linetype = "dashed", color = "#ff0015") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_continuous(breaks = two_weeks, labels = into_date) +
+  ggtitle("New deaths") -> deaths
+
+gdeath <- ggplotly(deaths, tooltip = "text")
+
+smooth1 <- paste0(
+  "Date: ", as.Date(round(gdeath$x$data[[2]]$x), origin = "1970-01-01"), "\n",
+  "Rolling average # deaths = ", round(gdeath$x$data[[2]]$y, 0)
+)
+
+ann <- list(
+  x = as.numeric(filter(sc, reporting_backlog == TRUE)$date),
+  y = filter(sc, reporting_backlog == TRUE)$new_deaths,
+  xref = "x",
+  yref = "y",
+  text = "Reporting backlog",
+  showarrow = TRUE,
+  arrowhead = 6,
+  arrowsize = 0.01,
+  ax = -50,
+  ay = 40,
+  font = list(
+    color = "#000000",
+    family = "IBM Plex Sans"
+  )
+)
+
+gdeath <- gdeath %>%
+  layout(annotations = ann) %>%
+  style(text = smooth1, traces = 2) %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(hovermode = "x")
+
+gdeath
+```
+
+### Current Hospitalizations
+
+```{r}
+ggplot(sc, aes(x = date, y = hospitalizedCurrently)) +
+  geom_point(aes(text = paste(
+    "Date:", date,
+    "\nIn hospital =", hospitalizedCurrently
+    )
+  )) + 
+  geom_smooth(se = F, color = "black", n = num_points) +
+  theme_nice(base_family = "IBM Plex Sans") +
+  ylim(0, max(sc$hospitalizedCurrently, na.rm = T) + 50) +
+  ylab("Currently hospitalized") +
+  xlab("Date") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
+             linetype = "dashed", color = "#73000a") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
+             linetype = "dashed", color = "#ff0015") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_continuous(breaks = two_weeks, labels = into_date) +
+  ggtitle("Current number in hospitals") -> hosp
+
+ghosp <- ggplotly(hosp, tooltip = "text")
+
+smooth1 <- paste0(
+  "Date: ", as.Date(round(ghosp$x$data[[2]]$x), origin = "1970-01-01"), "\n",
+  "Rolling average # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
+)
+
+ann <- list(
+  x = as.numeric(as.Date("2020-04-16")),
+  y = 500,
+  xref = "x",
+  yref = "y",
+  text = "Number of currently\nhospitalized not reported\nuntil May",
+  showarrow = FALSE,
+  arrowhead = 6,
+  arrowsize = 0.01,
+  ax = -50,
+  ay = 40,
+  bgcolor = "white",
+  font = list(
+    color = "#000000",
+    family = "IBM Plex Sans"
+  )
+)
+
+ghosp <- ghosp %>%
+  layout(annotations = ann) %>%
+  style(text = smooth1, traces = 2) %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(hovermode = "x")
+
+ghosp
+```
+
+### Total Hospitalizations
+
+```{r}
+ggplot(sc, aes(x = date, y = hospitalizedCumulative)) +
+  geom_point(aes(text = paste(
+    "Date:", date,
+    "\nEver hospitalized =", hospitalizedCumulative
+    )
+  )) + 
+  geom_smooth(se = F, color = "black", n = num_points) +
+  theme_nice(base_family = "IBM Plex Sans") +
+  ylim(0, max(sc$hospitalizedCumulative, na.rm = T) + 50) +
+  ylab("Total ever hospitalized") +
+  xlab("Date") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
+             linetype = "dashed", color = "#73000a") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
+             linetype = "dashed", color = "#ff0015") +
+  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_continuous(breaks = two_weeks, labels = into_date) +
+  ggtitle("Cumulative # of hospitalizations") -> hosp2
+
+ghosp2 <- ggplotly(hosp2, tooltip = "text")
+
+smooth1 <- paste0(
+  "Date: ", as.Date(round(ghosp2$x$data[[2]]$x), origin = "1970-01-01"), "\n",
+  "Rolling average # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
+)
+
+ghosp2 <- ghosp2 %>%
+  # layout(annotations = ann) %>%
+  style(text = smooth1, traces = 2) %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(hovermode = "x")
+
+ghosp2
+```
