@@ -21,7 +21,7 @@ library(ggplot2)
 library(lubridate)
 library(plotly)
 
-extrafont::font_import("./IBM-Plex-Sans")
+extrafont::font_import("./IBM-Plex-Sans", prompt = FALSE)
 
 states <- read_csv("http://covidtracking.com/api/states/daily.csv") %>%
   mutate(
@@ -77,6 +77,7 @@ num_points <- as.numeric(range(filter(states, state == "SC")$date)[2] -
 
 ```
 
+Last updated `r format(Sys.Date(), "%B %e, %Y")`.
 
 Row {.tabset}
 -----------------------------------------------------------------------
