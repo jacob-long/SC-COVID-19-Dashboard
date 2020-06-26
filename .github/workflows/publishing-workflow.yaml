@@ -3,7 +3,7 @@ on:
     paths:
       - sc_dashboard.Rmd
   schedule: 
-    - cron: '11 23 * * *' 
+  - cron: '16 23 * * *' 
 
 name: Render Dashboard
 
