@@ -6,6 +6,11 @@ output:
     vertical_layout: fill
     theme: flatly
     css: sc_dash.css
+    source_code: "https://github.com/jacob-long/SC-COVID-19-Dashboard"
+    navbar:
+      - { title: "Data Source", href: "https://covidtracking.com", icon: "fa-table"}
+      - {title: "Author", href: "https://jacob-long.com", icon: "fa-user-edit"}
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -61,7 +66,7 @@ sc$reporting_backlog <- FALSE
 sc$reporting_backlog[sc$date < as.Date("2020-05-01") & sc$new_deaths > 40] <- TRUE
 
 two_weeks <- function(x) {
-  seq(x[1], x[2], 14)
+  seq(x[1], x[2], 21)
 }
 
 into_date <- function(x) {
@@ -76,8 +81,6 @@ num_points <- as.numeric(range(filter(states, state == "SC")$date)[2] -
   range(filter(states, state == "SC")$date)[1])
 
 ```
-
-Last updated `r format(Sys.Date(), "%B %e, %Y")`.
 
 Row {.tabset}
 -----------------------------------------------------------------------
@@ -165,7 +168,7 @@ smooth1 <- paste0(
 )
 smooth2 <- paste0(
   "Date: ", as.Date(round(gtests$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average number of positives: ", round(10^gtests$x$data[[2]]$y)
+  "Rolling average number of tests: ", round(10^gtests$x$data[[2]]$y)
 )
 
 gtests <- gtests %>% 
@@ -408,3 +411,4 @@ ghosp2 <- ghosp2 %>%
 
 ghosp2
 ```
+

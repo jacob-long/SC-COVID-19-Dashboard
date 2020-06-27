@@ -8,3 +8,10 @@
   color: #FFFFFF;
   background-color: none;
 }
+
+.navbar-inverse .navbar-nav > li > a:hover, 
+.navbar-inverse .navbar-nav > li > a:focus {
+  color: #bfbfbf;
+  background-color: none;
+}
+
