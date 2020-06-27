@@ -19,7 +19,7 @@
     border-color: #000000;
 }
 
-.navbar-toggle:focus {
-  border-color: #000000;
-  background-color: #73000a;
+.navbar-toggle:focus, .navbar-toggle:hover, .navbar-collapse {
+  border-color: #FFFFFF;
+  background-color: #73000a !important;
 }
