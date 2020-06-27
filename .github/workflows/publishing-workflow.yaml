@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: Rscript -e 'install.packages(c("rmarkdown", "flexdashboard", "tidyverse", "jtools", "lubridate", "extrafont", "ggplot2", "plotly"))'
       - name: Render README
-        run: Rscript -e 'rmarkdown::render("sc_dashboard.Rmd", flexdashboard::flex_dashboard(navbar = list(list(title = "Author", href = "https://jacob-long.com", icon = "fa-user-edit"), list(title = "Data Source", href = "https://covidtracking.com", icon = "fa-table"), list(title = paste("Updated:", format(Sys.Date(), "%B %e, %Y")), align = "left", icon = "far fa-clock")), source_code = "https://github.com/jacob-long/SC-COVID-19-Dashboard", css = "sc_dash.css", theme = "flatly", orientation = "row", vertical_layout = "fill"))'
+        run: Rscript -e 'rmarkdown::render("sc_dashboard.Rmd", flexdashboard::flex_dashboard(navbar = list(list(title = "Author", href = "https://jacob-long.com", icon = "fa-user-edit"), list(title = "Data Source", href = "https://covidtracking.com", icon = "fa-table"), list(title = paste("Updated:", format(as.Date(Sys.time(), tz = "America/New_York"), "%B %e, %Y")), align = "left", icon = "far fa-clock")), source_code = "https://github.com/jacob-long/SC-COVID-19-Dashboard", css = "sc_dash.css", theme = "flatly", orientation = "row", vertical_layout = "fill"))'
       - name: Commit results
         run: |
           git commit sc_dashboard.html -m 'Re-build sc_dashboard.html'
