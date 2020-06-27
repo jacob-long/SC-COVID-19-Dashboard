@@ -15,3 +15,11 @@
   background-color: none;
 }
 
+.navbar-inverse .navbar-toggle {
+    border-color: #000000;
+}
+
+.navbar-toggle:focus {
+  border-color: #000000;
+  background-color: #73000a;
+}
