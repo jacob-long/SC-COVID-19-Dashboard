@@ -9,7 +9,7 @@ output:
     source_code: "https://github.com/jacob-long/SC-COVID-19-Dashboard"
     navbar:
       - { title: "Data Source", href: "https://covidtracking.com", icon: "fa-table"}
-      - {title: "Author", href: "https://jacob-long.com", icon: "fa-user-edit"} 
+      - {title: "Author", href: "https://jacob-long.com", icon: "fa-user-edit"}
     
 ---
 

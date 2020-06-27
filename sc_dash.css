@@ -16,10 +16,10 @@
 }
 
 .navbar-inverse .navbar-toggle {
-    border-color: #000000;
+    border-color: #FFFFFF;
 }
 
-.navbar-toggle:focus, .navbar-toggle:hover, .navbar-collapse {
+.navbar-toggle:focus, .navbar-toggle:hover, .navbar-inverse .navbar-collapse {
   border-color: #FFFFFF;
   background-color: #73000a !important;
 }
