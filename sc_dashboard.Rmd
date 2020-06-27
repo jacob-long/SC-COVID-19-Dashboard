@@ -85,7 +85,7 @@ num_points <- as.numeric(range(filter(states, state == "SC")$date)[2] -
 Row {.tabset}
 -----------------------------------------------------------------------
 
-### Cases and Tests
+### Daily Cases and Tests
 
 ```{r}
 ggplot(states %>% filter(state == "SC") %>%
@@ -96,7 +96,8 @@ ggplot(states %>% filter(state == "SC") %>%
   geom_smooth(se = F, n = num_points) +
   geom_point(aes(text = paste(
     "Date:", date,
-    "\nNumber:", value
+    paste0("\n", ifelse(test_type == "Positives", "Positives:", "Tests:")),
+            value
     )
   )) +
   theme_nice(base_family = "IBM Plex Sans") +
@@ -116,8 +117,8 @@ ggplot(states %>% filter(state == "SC") %>%
              linetype = "dashed", color = "#ff0015") +
   geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) +
-  ggtitle("Cases and Testing") -> tests
+  scale_x_continuous(breaks = two_weeks, labels = into_date) -> tests
+  # ggtitle("Cases and Testing") 
 
 gtests <- ggplotly(tests, tooltip = c("text")) %>%
   add_annotations(
@@ -142,7 +143,7 @@ gtests <- ggplotly(tests, tooltip = c("text")) %>%
   ) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2020-04-07"))),
-    y = c(0.5),
+    y = c(0),
     text = c( '"Home or Work"\norder'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -152,7 +153,7 @@ gtests <- ggplotly(tests, tooltip = c("text")) %>%
   ) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2020-05-04"))),
-    y = c(0.5),
+    y = c(0.75),
     text = c('"Home or Work"\norder lifted'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -217,8 +218,8 @@ ggplot(filter(states, state == "SC"), aes(x = date, y = pos_rate)) +
   geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
   # scale_x_date(date_breaks = "14 days", date_labels = "%b %e") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) +
-  ggtitle("Positive test rate") -> pos_rate
+  scale_x_continuous(breaks = two_weeks, labels = into_date) -> pos_rate
+  # ggtitle("Positive test rate") -> pos_rate
 
 gpos <- ggplotly(pos_rate, tooltip = c("text"))
 
@@ -252,7 +253,7 @@ gpos
 Row {.tabset}
 -----------------------------------------------------------------------
 
-### Deaths
+### Deaths per day
 
 ```{r}
 ggplot(sc, aes(x = date, y = new_deaths)) +
@@ -263,7 +264,7 @@ ggplot(sc, aes(x = date, y = new_deaths)) +
   )) + 
   geom_smooth(se = F, color = "black", n = num_points) +
   theme_nice(base_family = "IBM Plex Sans") +
-  ylab("Deaths") +
+  ylab("Deaths/day") +
   xlab("Date") +
   geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
              linetype = "dashed", color = "#466A9F") +
@@ -273,8 +274,8 @@ ggplot(sc, aes(x = date, y = new_deaths)) +
              linetype = "dashed", color = "#ff0015") +
   geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) +
-  ggtitle("New deaths") -> deaths
+  scale_x_continuous(breaks = two_weeks, labels = into_date) -> deaths
+  # ggtitle("New deaths") -> deaths
 
 gdeath <- ggplotly(deaths, tooltip = "text")
 
@@ -332,8 +333,8 @@ ggplot(sc, aes(x = date, y = hospitalizedCurrently)) +
              linetype = "dashed", color = "#ff0015") +
   geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) +
-  ggtitle("Current number in hospitals") -> hosp
+  scale_x_continuous(breaks = two_weeks, labels = into_date) -> hosp
+  # ggtitle("Current number in hospitals") -> hosp
 
 ghosp <- ggplotly(hosp, tooltip = "text")
 
@@ -392,8 +393,8 @@ ggplot(sc, aes(x = date, y = hospitalizedCumulative)) +
              linetype = "dashed", color = "#ff0015") +
   geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) +
-  ggtitle("Cumulative # of hospitalizations") -> hosp2
+  scale_x_continuous(breaks = two_weeks, labels = into_date) -> hosp2
+  # ggtitle("Cumulative # of hospitalizations") -> hosp2
 
 ghosp2 <- ggplotly(hosp2, tooltip = "text")
 
