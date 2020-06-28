@@ -328,7 +328,7 @@ ann <- list(
   arrowsize = 0.01,
   ax = -50,
   ay = 40,
-  bgcolor = "#000000",
+  bgcolor = "#FFFFFF",
   font = list(
     color = "#000000",
     family = "IBM Plex Sans"
