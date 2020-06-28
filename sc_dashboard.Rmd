@@ -8,8 +8,9 @@ output:
     css: sc_dash.css
     source_code: "https://github.com/jacob-long/SC-COVID-19-Dashboard"
     navbar:
-      - { title: "Data Source", href: "https://covidtracking.com", icon: "fa-table"}
-      - {title: "Author", href: "https://jacob-long.com", icon: "fa-user-edit"}
+      - {title: "SC DHEC", href: "https://scdhec.gov", icon: "fas fa-notes-medical"}
+      - {title: "COVID Tracking Project", href: "https://covidtracking.com", icon: "fa-table"}
+      - {title: "Jacob Long", href: "https://jacob-long.com", icon: "fa-user-edit"}
     
 ---
 
@@ -36,7 +37,7 @@ states <- read_csv("http://covidtracking.com/api/states/daily.csv") %>%
   # filter(state %in% c("NY", "CO", "FL", "MA", "MN", "CA", "VA", "PA")) %>%
   arrange(state, date) %>%
   group_by(state) %>%
-  filter(date != lag(date), positive != lag(positive)) %>%
+  filter(date != lag(date)) %>%
   mutate(
     new_positives = positive - lag(positive),
     tests = positive + negative,
@@ -65,6 +66,38 @@ sc$new_deaths[sc$date > as.Date("2020-03-05") & sc$date < as.Date("2020-03-17")]
 sc$reporting_backlog <- FALSE
 sc$reporting_backlog[sc$date < as.Date("2020-05-01") & sc$new_deaths > 40] <- TRUE
 
+dhec_dat <- read_csv("scdhec_test_data.csv",
+                     col_names = c("date", "rep_pos_rate"),
+                     col_types = cols(date = col_date("%m/%d/%Y"),
+                                      rep_pos_rate = col_double()),
+                     skip = 1) %>%
+  mutate(date = date + 1)
+
+sc <- full_join(sc, dhec_dat, by = "date")
+
+dhec_cases <- read_csv("dhec_case_data.csv")
+
+sc <- full_join(sc, dhec_cases, by = "date")
+
+sc %<>%
+  mutate(
+    new_positives2 = new_positives,
+    new_positives = case_when(
+      !is.na(cases) ~ cases,
+      TRUE ~ new_positives
+    ),
+    new_tests = case_when(
+      !is.na(rep_pos_rate) ~ new_positives / rep_pos_rate,
+      TRUE ~ new_tests,
+    ),
+    total_tests = cumsum(replace_na(new_tests, 0)),
+    pos_rate2 = pos_rate,
+    pos_rate = case_when(
+      !is.na(rep_pos_rate) ~ rep_pos_rate,
+      TRUE ~ pos_rate
+    )
+  ) 
+
 two_weeks <- function(x) {
   seq(x[1], x[2], 21)
 }
@@ -88,7 +121,7 @@ Row {.tabset}
 ### Daily Cases and Tests
 
 ```{r}
-ggplot(states %>% filter(state == "SC") %>%
+ggplot(sc %>%
          pivot_longer(c(new_tests, new_positives), names_to = "test_type") %>%
          mutate(test_type = ifelse(test_type == "new_positives",
                                    yes = "Positives", no = "Total")),
@@ -97,7 +130,7 @@ ggplot(states %>% filter(state == "SC") %>%
   geom_point(aes(text = paste(
     "Date:", date,
     paste0("\n", ifelse(test_type == "Positives", "Positives:", "Tests:")),
-            value
+            round(value)
     )
   )) +
   theme_nice(base_family = "IBM Plex Sans") +
@@ -165,11 +198,11 @@ gtests <- ggplotly(tests, tooltip = c("text")) %>%
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(gtests$x$data[[1]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average number of positives: ", round(10^gtests$x$data[[1]]$y)
+  "Smoothed estimate of positives: ", round(10^gtests$x$data[[1]]$y)
 )
 smooth2 <- paste0(
   "Date: ", as.Date(round(gtests$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average number of tests: ", round(10^gtests$x$data[[2]]$y)
+  "Smoothed estimate of tests: ", round(10^gtests$x$data[[2]]$y)
 )
 
 gtests <- gtests %>% 
@@ -198,7 +231,7 @@ gtests
 ### Positive Test %
 
 ```{r}
-ggplot(filter(states, state == "SC"), aes(x = date, y = pos_rate)) +
+ggplot(sc, aes(x = date, y = pos_rate)) +
   geom_point(aes(text = paste(
     "Date:", date,
     "\nPercentage positive =", paste0(round(pos_rate * 100, 1), "%")
@@ -237,7 +270,7 @@ label <- list(
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(gpos$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average % positive = ", round(gpos$x$data[[2]]$y * 100, 1), "%"
+  "Smoothed estimate % positive = ", round(gpos$x$data[[2]]$y * 100, 1), "%"
 )
 
 gpos <- gpos %>% 
@@ -281,7 +314,7 @@ gdeath <- ggplotly(deaths, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(gdeath$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average # deaths = ", round(gdeath$x$data[[2]]$y, 0)
+  "Smoothed estimate # deaths = ", round(gdeath$x$data[[2]]$y, 0)
 )
 
 ann <- list(
@@ -341,7 +374,7 @@ ghosp <- ggplotly(hosp, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(ghosp$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
+  "Smoothed estimate # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
 )
 
 ann <- list(
@@ -401,7 +434,7 @@ ghosp2 <- ggplotly(hosp2, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(ghosp2$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Rolling average # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
+  "Smoothed estimate # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
 )
 
 ghosp2 <- ghosp2 %>%
