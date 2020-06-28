@@ -1,3 +1,7 @@
+library(magrittr)
+library(tidyverse)
+library(lubridate)
+
 xml2::read_html("https://www.scdhec.gov/infectious-diseases/viruses/coronavirus-disease-2019-covid-19/dhec-news-releases-information-videos-covid-19") %>%
   rvest::html_nodes("div.panel ul li a") %>%
   rvest::html_attrs() %>%
