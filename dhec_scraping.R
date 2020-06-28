@@ -201,7 +201,22 @@ if (max(outdf$date) < today(tzone = "America/New_York")) {
       stringr::str_replace(",", "") %>%
       as.numeric()
     
-    outdf <- bind_rows(outdf, list(date = day, cases = as.numeric(cases), url = u))
+    deaths <- page %>%
+      rvest::html_text() %>%
+      stringr::str_extract("(\\d|,)+(?= additional deaths| additional confirmed deaths)") %>%
+      stringr::str_replace(",", "") %>%
+      as.numeric()
+    
+    rep_pos_rate2 <- page %>%
+      rvest::html_text() %>%
+      stringr::str_extract("(?<=percent positive was )(\\d|\\.)+") %>%
+      stringr::str_replace(",", "") %>%
+      as.numeric() %>%
+      `/`(., 100)
+    
+    outdf <- bind_rows(outdf, list(date = day, cases = as.numeric(cases), 
+                                   url = u, deaths2 = deaths, 
+                                   rep_pos_rate2 = rep_pos_rate2))
   }
 }
 

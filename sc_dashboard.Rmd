@@ -88,13 +88,19 @@ sc %<>%
     ),
     new_tests = case_when(
       !is.na(rep_pos_rate) ~ new_positives / rep_pos_rate,
+      !is.na(rep_pos_rate2) ~ new_positives / rep_pos_rate2,
       TRUE ~ new_tests,
     ),
     total_tests = cumsum(replace_na(new_tests, 0)),
     pos_rate2 = pos_rate,
     pos_rate = case_when(
       !is.na(rep_pos_rate) ~ rep_pos_rate,
+      !is.na(rep_pos_rate2) ~ rep_pos_rate2,
       TRUE ~ pos_rate
+    ),
+    new_deaths = case_when(
+      !is.na(deaths2) ~ deaths2,
+      TRUE ~ new_deaths
     )
   ) 
 
