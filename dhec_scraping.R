@@ -191,15 +191,18 @@ if (max(outdf$date) < today(tzone = "America/New_York")) {
   day <- today(tzone = "America/New_York")
   u <- paste0(url_stub, "-", format(day, "%B"), "-", trimws(format(day, "%e")),
               "-", "2020")
-  page <- xml2::read_html(u)
   
-  cases <- page %>%
-    rvest::html_text() %>%
-    stringr::str_extract("(\\d|,)+(?= new cases| new confirmed cases)") %>%
-    stringr::str_replace(",", "") %>%
-    as.numeric()
+  page <- try(xml2::read_html(u))
   
-  outdf <- bind_rows(outdf, list(date = day, cases = as.numeric(cases), url = u))
+  if (!("try-error" %in% class(page))) {
+    cases <- page %>%
+      rvest::html_text() %>%
+      stringr::str_extract("(\\d|,)+(?= new cases| new confirmed cases)") %>%
+      stringr::str_replace(",", "") %>%
+      as.numeric()
+    
+    outdf <- bind_rows(outdf, list(date = day, cases = as.numeric(cases), url = u))
+  }
 }
 
 write_csv(outdf, "dhec_case_data.csv")
