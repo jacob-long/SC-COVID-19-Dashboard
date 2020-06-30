@@ -469,7 +469,7 @@ Maps
 Row 
 -----------------------------------------------------------------------
 
-### Weekly Case Growth 
+### Weekly case growth 
 
 ```{r include = FALSE}
 options(tigris_use_cache = TRUE)
@@ -579,7 +579,7 @@ pmap <- ggplotly(scmap, tooltip = "text") %>%
 pmap
 ```
 
-### Case Density 
+### Case density 
 
 ```{r}
 inner_join(acs_dat, nytc, by = "fips") %>%
