@@ -469,9 +469,9 @@ Maps
 Row 
 -----------------------------------------------------------------------
 
-### Case Growth 
+### Weekly Case Growth 
 
-```{r}
+```{r include = FALSE}
 options(tigris_use_cache = TRUE)
 
 census_api_key(Sys.getenv("CENSUS_API_KEY"))
@@ -481,7 +481,10 @@ acs_dat <- get_acs("county", state = "SC",
                    year = 2018, survey = "acs5",
                    geometry = TRUE, keep_geo_vars = FALSE) %>%
   dplyr::select(fips = GEOID, population = estimate, geometry)
+```
 
+
+```{r}
 nytc <- 
   read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv") %>%
   filter(state == "South Carolina") %>%
@@ -548,12 +551,11 @@ inner_join(acs_dat, nytc, by = "fips") %>%
                       ) -> scmap
 
 ann <- list(
-  y = c(34.0007100, 32.784618, 34.852619, 33.689060, 32.178890),
-  x = c(-81.0348100, -79.940918, -82.394012, -78.886696, -80.743057),
+  y = c(34.0007100, 32.784618, 34.852619, 33.689060),
+  x = c(-81.0348100, -79.940918, -82.394012, -78.886696),
   xref = "x",
   yref = "y",
-  text = c("Columbia", "Charleston", "Greenville", "Myrtle Beach", 
-           "Hilton Head Island"),
+  text = c("Columbia", "Charleston", "Greenville", "Myrtle Beach"),
   showarrow = TRUE,
   arrowhead = 6,
   arrowsize = 0.01,
