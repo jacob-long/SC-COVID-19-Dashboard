@@ -214,9 +214,16 @@ if (max(outdf$date) < today(tzone = "America/New_York")) {
       as.numeric() %>%
       `/`(., 100)
     
+    in_hospital <- page %>%
+      rvest::html_text() %>%
+      stringr::str_extract("(\\d|\\,)+(?= are occupied by patients)") %>%
+      stringr::str_replace(",", "") %>%
+      as.numeric()
+    
     outdf <- bind_rows(outdf, list(date = day, cases = as.numeric(cases), 
                                    url = u, deaths2 = deaths, 
-                                   rep_pos_rate2 = rep_pos_rate2))
+                                   rep_pos_rate2 = rep_pos_rate2,
+                                   in_hospital = in_hospital))
   }
 }
 
