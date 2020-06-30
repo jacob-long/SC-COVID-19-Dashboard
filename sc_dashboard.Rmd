@@ -8,8 +8,8 @@ output:
     css: sc_dash.css
     source_code: "https://github.com/jacob-long/SC-COVID-19-Dashboard"
     navbar:
-      - {title: "SC DHEC", href: "https://scdhec.gov", icon: "fas fa-notes-medical"}
-      - {title: "COVID Tracking Project", href: "https://covidtracking.com", icon: "fa-table"}
+      # - {title: "SC DHEC", href: "https://scdhec.gov", icon: "fas fa-notes-medical"}
+      # - {title: "COVID Tracking Project", href: "https://covidtracking.com", icon: "fa-table"}
       - {title: "Jacob Long", href: "https://jacob-long.com", icon: "fa-user-edit"}
     
 ---
@@ -26,6 +26,9 @@ library(extrafont)
 library(ggplot2)
 library(lubridate)
 library(plotly)
+library(tidycensus)
+library(tsibble)
+library(slider)
 
 extrafont::font_import("./IBM-Plex-Sans", prompt = FALSE)
 
@@ -80,6 +83,7 @@ dhec_cases <- read_csv("dhec_case_data.csv")
 sc <- full_join(sc, dhec_cases, by = "date")
 
 sc %<>%
+  ungroup() %>%
   mutate(
     new_positives2 = new_positives,
     new_positives = case_when(
@@ -100,8 +104,11 @@ sc %<>%
     ),
     new_deaths = case_when(
       !is.na(deaths2) ~ deaths2,
+      dateModified == lag(dateModified) ~ NA_real_,
       TRUE ~ new_deaths
-    )
+    ),
+    day_of_week = factor(wday(date)),
+    day_of_week = relevel(day_of_week, ref = "7")
   ) 
 
 two_weeks <- function(x) {
@@ -120,6 +127,9 @@ num_points <- as.numeric(range(filter(states, state == "SC")$date)[2] -
   range(filter(states, state == "SC")$date)[1])
 
 ```
+
+Statewide Statistics
+=======================================================================
 
 Row {.tabset}
 -----------------------------------------------------------------------
@@ -452,4 +462,200 @@ ghosp2 <- ghosp2 %>%
 
 ghosp2
 ```
+
+Maps
+=======================================================================
+
+Row 
+-----------------------------------------------------------------------
+
+### Case Growth 
+
+```{r}
+options(tigris_use_cache = TRUE)
+acs_dat <- get_acs("county", state = "SC", 
+                   variables = c(population = "B01003_001"),
+                   year = 2018, survey = "acs5",
+                   geometry = TRUE, keep_geo_vars = FALSE) %>%
+  dplyr::select(fips = GEOID, population = estimate, geometry)
+
+nytc <- 
+  read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv") %>%
+  filter(state == "South Carolina") %>%
+  inner_join(select(as_tibble(acs_dat), -geometry), by = "fips") %>%
+  as_tsibble(key = county, index = date) %>%
+  group_by_key() %>%
+  mutate(
+    lag_cases = lag(cases),
+    lag_cases = replace_na(lag_cases, 0),
+    new_cases = cases - lag_cases,
+    lag_deaths = lag(deaths),
+    lag_deaths = replace_na(lag_deaths, 0),
+    new_deaths = deaths - lag_deaths,
+    new_cases_avg = slide_dbl(new_cases, ~mean(.x), .before = 6),
+    new_deaths_avg = slide_dbl(new_deaths, ~mean(.x), .before = 6),
+    lag_cases_avg = lag(new_cases_avg, 6),
+    lag_deaths_avg = lag(new_deaths_avg, 6),
+    case_growth = new_cases_avg / lag_cases_avg + 
+      # Adding random noise because ggplotly has an error when two fills
+      # have exactly the same value and I want to use hoveron = "fill"
+      # https://github.com/ropensci/plotly/issues/1641
+      rnorm(1, sd = .001),
+    death_growth = new_deaths_avg / lag_deaths_avg,
+  ) %>%
+  filter(date == max(date)) %>%
+  mutate(
+    cases_per_cap = cases / population,
+    # Adding random noise because ggplotly has an error when two fills
+    # have exactly the same value and I want to use hoveron = "fill"
+    # https://github.com/ropensci/plotly/issues/1641
+    deaths_per_cap = deaths / population + abs(rnorm(1, sd = 0.000001)),
+    # Adding random noise because ggplotly has an error when two fills
+    # have exactly the same value and I want to use hoveron = "fill"
+    # https://github.com/ropensci/plotly/issues/1641
+    deaths = deaths + rnorm(1, sd = 0.1)
+  ) %>%
+  as_tibble()
+
+inner_join(acs_dat, nytc, by = "fips") %>%
+  ggplot(aes(fill = case_growth,
+             text = paste(
+               county, "County",
+               "\nCase growth =", ifelse(
+                 is.finite(case_growth),
+                 yes = paste0(round((case_growth - 1) * 100), "%"),
+                 no = "No data")
+             ))) +
+  geom_sf() +
+  # geom_point(y = 34.0007100, y = -81.0348100, ) +
+  ggthemes::theme_map() +
+  # ggtitle("New case growth") +
+  scale_fill_gradient2(low = scales::muted("blue"),
+                       high = scales::muted("red"), midpoint = 1,
+                       limits = c(0.5, 2), oob = scales::squish,
+                       breaks = c(0.5, 1, 1.5, 2),
+                       labels = c(
+                         "Shrinking rapidly",
+                         "Staying the same", 
+                         "Going up 50% per week", 
+                         "Doubling every week"
+                       ),
+                       name = "New cases are...",
+                       guide = "legend"
+                      ) -> scmap
+
+ann <- list(
+  y = c(34.0007100, 32.784618, 34.852619, 33.689060, 32.178890),
+  x = c(-81.0348100, -79.940918, -82.394012, -78.886696, -80.743057),
+  xref = "x",
+  yref = "y",
+  text = c("Columbia", "Charleston", "Greenville", "Myrtle Beach", 
+           "Hilton Head Island"),
+  showarrow = TRUE,
+  arrowhead = 6,
+  arrowsize = 0.01,
+  ax = 10,
+  ay = 10,
+  bgcolor = "#FFFFFF",
+  font = list(
+    size = 10,
+    color = "#000000",
+    family = "IBM Plex Sans"
+  )
+)
+
+pmap <- ggplotly(scmap, tooltip = "text") %>%
+  style(hoveron = "fill") %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(annotations = ann) %>%
+  hide_guides()
+
+pmap
+```
+
+### Case Density 
+
+```{r}
+inner_join(acs_dat, nytc, by = "fips") %>%
+  ggplot(aes(fill = cases_per_cap,
+             text = paste(
+               county, "County",
+               "\n% population infected =", ifelse(
+                 is.finite(cases_per_cap),
+                 yes = paste0(round(cases_per_cap * 100, 3), "%"),
+                 no = "No data")
+             ))) +
+  geom_sf() +
+  ggthemes::theme_map() +
+  # ggtitle("Total cases per capita") +
+  scale_fill_gradient(low = "white", high = scales::muted("red")) -> scmap
+
+pmap <- ggplotly(scmap, tooltip = "text") %>%
+  style(hoveron = "fill") %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(annotations = ann) %>%
+  hide_guides()
+
+pmap
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Deaths per capita
+
+```{r}
+inner_join(acs_dat, nytc, by = "fips") %>%
+  ggplot(aes(fill = deaths_per_cap,
+             text = paste(
+               county, "County",
+               "\n% population deceased =", ifelse(
+                 is.finite(deaths_per_cap),
+                 yes = paste0(round(deaths_per_cap * 100, 3), "%"),
+                 no = "No data")
+             ))) +
+  geom_sf() +
+  ggthemes::theme_map() +
+  # ggtitle("Deaths per capita") +
+  scale_fill_gradient(low = "white", high = scales::muted("red")) -> scmap
+
+pmap <- ggplotly(scmap, tooltip = "text") %>%
+  style(hoveron = "fill") %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(annotations = ann) %>%
+  hide_guides()
+
+pmap
+```
+
+### Total deaths
+
+```{r}
+inner_join(acs_dat, nytc, by = "fips") %>%
+  ggplot(aes(fill = deaths,
+             text = paste(
+               county, "County",
+               "\n# of deaths =", ifelse(
+                 is.finite(deaths),
+                 yes = round(deaths),
+                 no = "No data")
+             ))) +
+  geom_sf() +
+  ggthemes::theme_map() +
+  # ggtitle("Total deaths") +
+  scale_fill_gradient(low = "white", high = scales::muted("red")) -> scmap
+
+pmap <- ggplotly(scmap, tooltip = "text") %>%
+  style(hoveron = "fill") %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(annotations = ann) %>%
+  hide_guides()
+
+pmap
+```
+
 
