@@ -3,6 +3,7 @@ on:
     paths:
       - sc_dashboard.Rmd
       - dhec_scraping.R
+      - .github/workflows/publishing-workflow.yaml
   schedule: 
   - cron: '0 21 * * *' 
 
