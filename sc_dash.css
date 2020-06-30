@@ -23,3 +23,16 @@
   border-color: #FFFFFF;
   background-color: #73000a !important;
 }
+
+.navbar-inverse .navbar-nav > .active > a, .navbar-inverse .navbar-nav > .active > a:hover, .navbar-inverse .navbar-nav > .active > a:focus {
+	color: #ffffff;
+	background-color: #000000;
+}
+
+div.chart-title {
+  font-size: 20px;
+}
+
+.nav-tabs-custom > .nav-tabs > li > a, .nav-tabs-custom > .nav-tabs > li > a:active {
+  font-size: 18px !important;
+}
