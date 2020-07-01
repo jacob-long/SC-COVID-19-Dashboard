@@ -107,6 +107,10 @@ sc %<>%
       dateModified == lag(dateModified) ~ NA_real_,
       TRUE ~ new_deaths
     ),
+    hospitalizedCurrently = case_when(
+      !is.na(in_hospital) ~ in_hospital,
+      TRUE ~ hospitalizedCurrently
+    ),
     day_of_week = factor(wday(date)),
     day_of_week = relevel(day_of_week, ref = "7")
   ) 
