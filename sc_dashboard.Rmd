@@ -90,11 +90,13 @@ sc %<>%
       !is.na(cases) ~ cases,
       TRUE ~ new_positives
     ),
+    new_positives_roll = slide_dbl(new_positives, ~mean(.x), .before = 6),
     new_tests = case_when(
       !is.na(rep_pos_rate) ~ new_positives / rep_pos_rate,
       !is.na(rep_pos_rate2) ~ new_positives / rep_pos_rate2,
       TRUE ~ new_tests,
     ),
+    new_tests_roll = slide_dbl(new_tests, ~mean(.x), .before = 6),
     total_tests = cumsum(replace_na(new_tests, 0)),
     pos_rate2 = pos_rate,
     pos_rate = case_when(
@@ -102,15 +104,19 @@ sc %<>%
       !is.na(rep_pos_rate2) ~ rep_pos_rate2,
       TRUE ~ pos_rate
     ),
+    pos_rate_roll = slide_dbl(pos_rate, ~mean(.x), .before = 6),
     new_deaths = case_when(
       !is.na(deaths2) ~ deaths2,
       dateModified == lag(dateModified) ~ NA_real_,
       TRUE ~ new_deaths
     ),
+    new_deaths_roll = slide_dbl(new_deaths, ~mean(.x), .before = 6),
     hospitalizedCurrently = case_when(
       !is.na(in_hospital) ~ in_hospital,
       TRUE ~ hospitalizedCurrently
     ),
+    hosp_roll = slide_dbl(hospitalizedCurrently, ~mean(.x), .before = 6),
+    ever_hosp_roll = slide_dbl(hospitalizedCumulative, ~mean(.x), .before = 6),
     day_of_week = factor(wday(date)),
     day_of_week = relevel(day_of_week, ref = "7")
   ) 
@@ -146,7 +152,10 @@ ggplot(sc %>%
          mutate(test_type = ifelse(test_type == "new_positives",
                                    yes = "Positives", no = "Total")),
        aes(x = date, y = value, colour = test_type)) +
-  geom_smooth(se = F, n = num_points) +
+  # geom_smooth(se = F, n = num_points) +
+  geom_path(data = sc %>% pivot_longer(c(new_tests_roll, new_positives_roll), names_to = "test_type") %>%
+         mutate(test_type = ifelse(test_type == "new_positives_roll",
+                                   yes = "Positives", no = "Total"))) +
   geom_point(aes(text = paste(
     "Date:", date,
     paste0("\n", ifelse(test_type == "Positives", "Positives:", "Tests:")),
@@ -218,11 +227,11 @@ gtests <- ggplotly(tests, tooltip = c("text")) %>%
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(gtests$x$data[[1]]$x), origin = "1970-01-01"), "\n",
-  "Smoothed estimate of positives: ", round(10^gtests$x$data[[1]]$y)
+  "7-day average positives: ", round(10^gtests$x$data[[1]]$y)
 )
 smooth2 <- paste0(
   "Date: ", as.Date(round(gtests$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Smoothed estimate of tests: ", round(10^gtests$x$data[[2]]$y)
+  "7-day average tests: ", round(10^gtests$x$data[[2]]$y)
 )
 
 gtests <- gtests %>% 
@@ -257,7 +266,8 @@ ggplot(sc, aes(x = date, y = pos_rate)) +
     "\nPercentage positive =", paste0(round(pos_rate * 100, 1), "%")
     )
   )) + 
-  geom_smooth(se = F, color = "black", n = num_points) +
+  # geom_smooth(se = F, color = "black", n = num_points) +
+  geom_path(aes(y = pos_rate_roll)) +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("% of tests that are positive") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, .25)) +
@@ -290,7 +300,7 @@ label <- list(
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(gpos$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Smoothed estimate % positive = ", round(gpos$x$data[[2]]$y * 100, 1), "%"
+  "7-day average % positive = ", round(gpos$x$data[[2]]$y * 100, 1), "%"
 )
 
 gpos <- gpos %>% 
@@ -315,7 +325,8 @@ ggplot(sc, aes(x = date, y = new_deaths)) +
     "\nDeaths =", new_deaths
     )
   )) + 
-  geom_smooth(se = F, color = "black", n = num_points) +
+  # geom_smooth(se = F, color = "black", n = num_points) +
+  geom_path(aes(y = new_deaths_roll)) +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("Deaths/day") +
   xlab("Date") +
@@ -334,7 +345,7 @@ gdeath <- ggplotly(deaths, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(gdeath$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Smoothed estimate # deaths = ", round(gdeath$x$data[[2]]$y, 0)
+  "7-day average # deaths = ", round(gdeath$x$data[[2]]$y, 0)
 )
 
 ann <- list(
@@ -374,7 +385,8 @@ ggplot(sc, aes(x = date, y = hospitalizedCurrently)) +
     "\nIn hospital =", hospitalizedCurrently
     )
   )) + 
-  geom_smooth(se = F, color = "black", n = num_points) +
+  # geom_smooth(se = F, color = "black", n = num_points) +
+  geom_path(aes(y = hosp_roll)) +
   theme_nice(base_family = "IBM Plex Sans") +
   ylim(0, max(sc$hospitalizedCurrently, na.rm = T) + 50) +
   ylab("Currently hospitalized") +
@@ -394,7 +406,7 @@ ghosp <- ggplotly(hosp, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(ghosp$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Smoothed estimate # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
+  "7-day average # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
 )
 
 ann <- list(
@@ -434,7 +446,8 @@ ggplot(sc, aes(x = date, y = hospitalizedCumulative)) +
     "\nEver hospitalized =", hospitalizedCumulative
     )
   )) + 
-  geom_smooth(se = F, color = "black", n = num_points) +
+  # geom_smooth(se = F, color = "black", n = num_points) +
+  geom_path(aes(y = ever_hosp_roll)) +
   theme_nice(base_family = "IBM Plex Sans") +
   ylim(0, max(sc$hospitalizedCumulative, na.rm = T) + 50) +
   ylab("Total ever hospitalized") +
@@ -454,7 +467,7 @@ ghosp2 <- ggplotly(hosp2, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(ghosp2$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "Smoothed estimate # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
+  "7-day average # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
 )
 
 ghosp2 <- ghosp2 %>%
