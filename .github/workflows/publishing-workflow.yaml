@@ -5,7 +5,7 @@ on:
       - dhec_scraping.R
       - .github/workflows/publishing-workflow.yaml
   schedule: 
-  - cron: '0 21 * * *' 
+  - cron: '35 18,21 * * *' 
 
 name: Render Dashboard
 
