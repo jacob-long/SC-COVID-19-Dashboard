@@ -110,13 +110,13 @@ sc %<>%
       dateModified == lag(dateModified) ~ NA_real_,
       TRUE ~ new_deaths
     ),
-    new_deaths_roll = slide_dbl(new_deaths, ~mean(.x), .before = 6),
+    new_deaths_roll = slide_dbl(new_deaths, ~mean(.x, na.rm = T), .before = 6),
     hospitalizedCurrently = case_when(
       !is.na(in_hospital) ~ in_hospital,
       TRUE ~ hospitalizedCurrently
     ),
-    hosp_roll = slide_dbl(hospitalizedCurrently, ~mean(.x), .before = 6),
-    ever_hosp_roll = slide_dbl(hospitalizedCumulative, ~mean(.x), .before = 6),
+    hosp_roll = slide_dbl(hospitalizedCurrently, ~mean(.x), .before = 2),
+    ever_hosp_roll = slide_dbl(hospitalizedCumulative, ~mean(.x), .before = 2),
     day_of_week = factor(wday(date)),
     day_of_week = relevel(day_of_week, ref = "7")
   ) 
@@ -406,7 +406,7 @@ ghosp <- ggplotly(hosp, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(ghosp$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "7-day average # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
+  "3-day average # in hospital = ", round(ghosp$x$data[[2]]$y, 0)
 )
 
 ann <- list(
@@ -467,7 +467,7 @@ ghosp2 <- ggplotly(hosp2, tooltip = "text")
 
 smooth1 <- paste0(
   "Date: ", as.Date(round(ghosp2$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "7-day average # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
+  "4-day average # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
 )
 
 ghosp2 <- ghosp2 %>%
