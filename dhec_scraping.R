@@ -203,7 +203,7 @@ if (max(outdf$date) < today(tzone = "America/New_York")) {
     
     deaths <- page %>%
       rvest::html_text() %>%
-      stringr::str_extract("(\\d|,)+(?= additional deaths| additional confirmed deaths)") %>%
+      stringr::str_extract("(\\d|,)+(?= additional deaths| additional confirmed deaths| new confirmed deaths)") %>%
       stringr::str_replace(",", "") %>%
       as.numeric()
     
