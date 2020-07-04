@@ -36,7 +36,7 @@ states <- read_csv("http://covidtracking.com/api/states/daily.csv") %>%
   mutate(
     date = lubridate::as_date(as.character(date))
   ) %>%
-  bind_rows(mutate(read_csv("https://covidtracking.com/api/v1/states/current.csv"), date = lubridate::today())) %>%
+  bind_rows(mutate(read_csv("https://covidtracking.com/api/v1/states/current.csv"), date = lubridate::today("America/New_York"))) %>%
   # filter(state %in% c("NY", "CO", "FL", "MA", "MN", "CA", "VA", "PA")) %>%
   arrange(state, date) %>%
   group_by(state) %>%
@@ -119,7 +119,8 @@ sc %<>%
     ever_hosp_roll = slide_dbl(hospitalizedCumulative, ~mean(.x), .before = 2),
     day_of_week = factor(wday(date)),
     day_of_week = relevel(day_of_week, ref = "7")
-  ) 
+  ) %>%
+  filter(!(date == today("America/New_York") & new_positives == 0))
 
 two_weeks <- function(x) {
   seq(x[1], x[2], 21)
