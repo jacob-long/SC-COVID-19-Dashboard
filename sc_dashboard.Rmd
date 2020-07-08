@@ -67,7 +67,7 @@ states <- read_csv("http://covidtracking.com/api/states/daily.csv") %>%
 sc <- filter(states, state == "SC")
 sc$new_deaths[sc$date > as.Date("2020-03-05") & sc$date < as.Date("2020-03-17")] <- 0
 sc$reporting_backlog <- FALSE
-sc$reporting_backlog[sc$date < as.Date("2020-05-01") & sc$new_deaths > 40] <- TRUE
+sc$reporting_backlog[sc$date %in% c(as.Date("2020-04-30"), as.Date("2020-07-08"))] <- TRUE
 
 dhec_dat <- read_csv("scdhec_test_data.csv",
                      col_names = c("date", "rep_pos_rate"),
