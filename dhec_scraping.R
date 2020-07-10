@@ -209,7 +209,7 @@ if (max(outdf$date) < today(tzone = "America/New_York")) {
     
     rep_pos_rate2 <- page %>%
       rvest::html_text() %>%
-      stringr::str_extract("(?<=percent positive was )(\\d|\\.)+") %>%
+      stringr::str_extract("(?<=percent positive was |percent positive of those tests was )(\\d|\\.)+") %>%
       stringr::str_replace(",", "") %>%
       as.numeric() %>%
       `/`(., 100)
