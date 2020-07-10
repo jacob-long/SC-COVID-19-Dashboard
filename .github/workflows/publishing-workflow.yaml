@@ -23,7 +23,7 @@ jobs:
         run: Rscript -e 'install.packages(c("rmarkdown", "flexdashboard", "broom", "tidyverse", "jtools", "lubridate", "extrafont", "ggplot2", "plotly", "xml2", "rvest", "tidycensus", "sf", "tsibble", "slider", "ggthemes"))'
       - name: Scrape DHEC data
         run: Rscript dhec_scraping.R
-      - name: Render README
+      - name: Render Dashboard
         env: 
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
         run: Rscript -e 'rmarkdown::render("sc_dashboard.Rmd", flexdashboard::flex_dashboard(navbar = list(list(title = paste("Updated:", format(as.Date(Sys.time(), tz = "America/New_York"), "%B %e, %Y")), icon = "far fa-clock"), list(title = "Author", href = "https://jacob-long.com", icon = "fa-user-edit")), source_code = "https://github.com/jacob-long/SC-COVID-19-Dashboard", css = "sc_dash.css", theme = "flatly", orientation = "row", vertical_layout = "fill"))'
