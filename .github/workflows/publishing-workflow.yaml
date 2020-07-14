@@ -14,17 +14,15 @@ jobs:
     name: Render Dashboard
     runs-on: macOS-latest
     steps:
-      - name: Install gdal
-        run: brew install gdal 
       - uses: actions/checkout@v2
       - name: Prepare repository
         run: git checkout "${GITHUB_REF:11}"
       - uses: r-lib/actions/setup-r@v1
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install tibble
-        run: Rscript -e 'install.packages("tibble")'
+        run: Rscript -e 'install.packages(c("tibble"), type = "binary")'
       - name: Install dependencies
-        run: Rscript -e 'install.packages(c("rmarkdown", "flexdashboard", "broom", "tidyverse", "jtools", "lubridate", "extrafont", "ggplot2", "plotly", "xml2", "rvest", "tigris", "tidycensus", "sf", "tsibble", "slider", "ggthemes"))'
+        run: Rscript -e 'install.packages(c("rmarkdown", "flexdashboard", "broom", "tidyverse", "jtools", "lubridate", "extrafont", "ggplot2", "plotly", "xml2", "rvest", "tigris", "tidycensus", "sf", "tsibble", "slider", "ggthemes"), type = "binary")'
       - name: Scrape DHEC data
         run: Rscript dhec_scraping.R
       - name: Render Dashboard
