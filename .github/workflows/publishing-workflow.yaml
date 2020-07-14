@@ -14,13 +14,13 @@ jobs:
     name: Render Dashboard
     runs-on: macOS-latest
     steps:
+      - name: Install gdal
+        run: rm '/usr/local/bin/gfortran' && brew install gdal 
       - uses: actions/checkout@v2
       - name: Prepare repository
         run: git checkout "${GITHUB_REF:11}"
       - uses: r-lib/actions/setup-r@v1
       - uses: r-lib/actions/setup-pandoc@v1
-      - name: Install gdal
-        run: rm '/usr/local/bin/gfortran' && brew install gdal 
       - name: Install tibble
         run: Rscript -e 'install.packages("tibble")'
       - name: Install dependencies
