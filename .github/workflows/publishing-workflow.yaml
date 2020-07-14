@@ -31,5 +31,7 @@ jobs:
         run: Rscript -e 'rmarkdown::render("sc_dashboard.Rmd", flexdashboard::flex_dashboard(navbar = list(list(title = paste("Updated:", format(as.Date(Sys.time(), tz = "America/New_York"), "%B %e, %Y")), icon = "far fa-clock"), list(title = "Author", href = "https://jacob-long.com", icon = "fa-user-edit")), source_code = "https://github.com/jacob-long/SC-COVID-19-Dashboard", css = "sc_dash.css", theme = "flatly", orientation = "row", vertical_layout = "fill"))'
       - name: Commit results
         run: |
+          git config --global user.name "Runner"
+          git config --global user.email "jlongrc@gmail.com"
           git commit sc_dashboard.html dhec_case_data.csv -m 'Re-build sc_dashboard.html'
           git push origin 
