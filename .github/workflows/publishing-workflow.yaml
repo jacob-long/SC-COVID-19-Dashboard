@@ -15,7 +15,7 @@ jobs:
     runs-on: macOS-latest
     steps:
       - name: Install gdal
-        run: rm '/usr/local/bin/gfortran' && brew install gdal 
+        run: brew install gdal 
       - uses: actions/checkout@v2
       - name: Prepare repository
         run: git checkout "${GITHUB_REF:11}"
