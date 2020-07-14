@@ -20,7 +20,7 @@ jobs:
       - uses: r-lib/actions/setup-r@v1
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install gdal
-        run: brew install gcc && brew link --overwrite gcc && brew install gdal 
+        run: rm '/usr/local/bin/gfortran' && brew install gdal 
       - name: Install dependencies
         run: Rscript -e 'install.packages(c("rmarkdown", "flexdashboard", "broom", "tidyverse", "jtools", "lubridate", "extrafont", "ggplot2", "plotly", "xml2", "rvest", "tigris", "tidycensus", "sf", "tsibble", "slider", "ggthemes"))'
       - name: Scrape DHEC data
