@@ -182,7 +182,8 @@ library(lubridate)
 # 
 # bind_rows(outdf2, outdf) %>% write_csv("dhec_case_data.csv")
 
-outdf <- read_csv("dhec_case_data.csv")
+outdf <- read_csv("dhec_case_data.csv") %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y"))
 
 if (max(outdf$date) < today(tzone = "America/New_York")) {
 
