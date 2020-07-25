@@ -115,6 +115,10 @@ sc %<>%
       !is.na(in_hospital) ~ in_hospital,
       TRUE ~ hospitalizedCurrently
     ),
+    hospitalizedCurrently = case_when(
+      hospitalizedCurrently == 1593 ~ NA,
+      TRUE ~ hospitalizedCurrently
+    ),
     hosp_roll = slide_dbl(hospitalizedCurrently, ~mean(.x), .before = 2),
     ever_hosp_roll = slide_dbl(hospitalizedCumulative, ~mean(.x), .before = 2),
     day_of_week = factor(wday(date)),
@@ -410,11 +414,12 @@ smooth1 <- paste0(
 )
 
 ann <- list(
-  x = as.numeric(as.Date("2020-04-16")),
-  y = 500,
+  x = c(as.numeric(as.Date("2020-04-16")), as.numeric(as.Date("2020-07-18"))),
+  y = c(500, 750),
   xref = "x",
   yref = "y",
-  text = "Number of currently\nhospitalized not reported\nuntil May",
+  text = c("Number of currently\nhospitalized not reported\nuntil May", 
+           "Hospital reporting temporarily\nstopped in mid-July"),
   showarrow = FALSE,
   arrowhead = 6,
   arrowsize = 0.01,
@@ -483,10 +488,8 @@ ghosp2
 Maps
 =======================================================================
 
-Row 
+Row {.tabset}
 -----------------------------------------------------------------------
-
-### Weekly case growth 
 
 ```{r include = FALSE}
 options(tigris_use_cache = TRUE)
@@ -498,10 +501,7 @@ acs_dat <- get_acs("county", state = "SC",
                    year = 2018, survey = "acs5",
                    geometry = TRUE, keep_geo_vars = FALSE) %>%
   dplyr::select(fips = GEOID, population = estimate, geometry)
-```
 
-
-```{r}
 nytc <- 
   read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv") %>%
   filter(state == "South Carolina") %>%
@@ -529,6 +529,7 @@ nytc <-
   filter(date == max(date)) %>%
   mutate(
     cases_per_cap = cases / population,
+    new_cases_cap = (new_cases_avg / population) * 100000,
     # Adding random noise because ggplotly has an error when two fills
     # have exactly the same value and I want to use hoveron = "fill"
     # https://github.com/ropensci/plotly/issues/1641
@@ -539,33 +540,25 @@ nytc <-
     deaths = deaths + rnorm(1, sd = 0.1)
   ) %>%
   as_tibble()
+```
 
+### Recent Case Density
+
+```{r}
 inner_join(acs_dat, nytc, by = "fips") %>%
-  ggplot(aes(fill = case_growth,
+  ggplot(aes(fill = new_cases_cap,
              text = paste(
                county, "County",
-               "\nCase growth =", ifelse(
-                 is.finite(case_growth),
-                 yes = paste0(round((case_growth - 1) * 100), "%"),
+               "\n", ifelse(
+                 is.finite(new_cases_cap),
+                 yes = paste0(round(new_cases_cap, 0), " daily cases per 100,000 people"),
                  no = "No data")
              ))) +
   geom_sf() +
-  # geom_point(y = 34.0007100, y = -81.0348100, ) +
   ggthemes::theme_map() +
-  # ggtitle("New case growth") +
-  scale_fill_gradient2(low = scales::muted("blue"),
-                       high = scales::muted("red"), midpoint = 1,
-                       limits = c(0.5, 2), oob = scales::squish,
-                       breaks = c(0.5, 1, 1.5, 2),
-                       labels = c(
-                         "Shrinking rapidly",
-                         "Staying the same", 
-                         "Going up 50% per week", 
-                         "Doubling every week"
-                       ),
-                       name = "New cases are...",
-                       guide = "legend"
-                      ) -> scmap
+  # ggtitle("Total cases per capita") +
+  scale_fill_gradient(low = "white", high = scales::muted("red"),
+                      limits = c(10, 70), oob = scales::squish) -> scmap
 
 ann <- list(
   y = c(34.0007100, 32.784618, 34.852619, 33.689060),
@@ -596,7 +589,47 @@ pmap <- ggplotly(scmap, tooltip = "text") %>%
 pmap
 ```
 
-### Case density 
+### Weekly Case Growth 
+
+```{r}
+inner_join(acs_dat, nytc, by = "fips") %>%
+  ggplot(aes(fill = case_growth,
+             text = paste(
+               county, "County",
+               "\nCase growth =", ifelse(
+                 is.finite(case_growth),
+                 yes = paste0(round((case_growth - 1) * 100), "%"),
+                 no = "No data")
+             ))) +
+  geom_sf() +
+  # geom_point(y = 34.0007100, y = -81.0348100, ) +
+  ggthemes::theme_map() +
+  # ggtitle("New case growth") +
+  scale_fill_gradient2(low = scales::muted("blue"),
+                       high = scales::muted("red"), midpoint = 1,
+                       limits = c(0.5, 2), oob = scales::squish,
+                       breaks = c(0.5, 1, 1.5, 2),
+                       labels = c(
+                         "Shrinking rapidly",
+                         "Staying the same", 
+                         "Going up 50% per week", 
+                         "Doubling every week"
+                       ),
+                       name = "New cases are...",
+                       guide = "legend"
+                      ) -> scmap
+
+pmap <- ggplotly(scmap, tooltip = "text") %>%
+  style(hoveron = "fill") %>%
+  style(hoverlabel = label) %>%
+  layout(font = font) %>%
+  layout(annotations = ann) %>%
+  hide_guides()
+
+pmap
+```
+
+### Total Case Density 
 
 ```{r}
 inner_join(acs_dat, nytc, by = "fips") %>%
@@ -623,10 +656,7 @@ pmap <- ggplotly(scmap, tooltip = "text") %>%
 pmap
 ```
 
-Row 
------------------------------------------------------------------------
-
-### Deaths per capita
+### Deaths per Capita
 
 ```{r}
 inner_join(acs_dat, nytc, by = "fips") %>%
@@ -653,7 +683,7 @@ pmap <- ggplotly(scmap, tooltip = "text") %>%
 pmap
 ```
 
-### Total deaths
+### Total Deaths
 
 ```{r}
 inner_join(acs_dat, nytc, by = "fips") %>%
