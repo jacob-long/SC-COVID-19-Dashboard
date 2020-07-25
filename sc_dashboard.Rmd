@@ -116,7 +116,7 @@ sc %<>%
       TRUE ~ hospitalizedCurrently
     ),
     hospitalizedCurrently = case_when(
-      hospitalizedCurrently == 1593 ~ NA,
+      hospitalizedCurrently == 1593 ~ NA_real_,
       TRUE ~ hospitalizedCurrently
     ),
     hosp_roll = slide_dbl(hospitalizedCurrently, ~mean(.x), .before = 2),
