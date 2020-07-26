@@ -198,7 +198,7 @@ if (max(outdf$date) < today(tzone = "America/New_York")) {
   if (!("try-error" %in% class(page))) {
     cases <- page %>%
       rvest::html_text() %>%
-      stringr::str_extract("(\\d|,)+(?= new cases| new confirmed cases)") %>%
+      stringr::str_extract("(\\d|,)+(?= new cases| new confirmed cases| additional confirmed cases)") %>%
       stringr::str_replace(",", "") %>%
       as.numeric()
     
