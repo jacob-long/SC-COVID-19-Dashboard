@@ -21,6 +21,8 @@ jobs:
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install tibble
         run: Rscript -e 'install.packages(c("tibble"), type = "binary")'
+      - name: Install older version of knitr
+        run: Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/knitr/knitr_1.29.tar.gz", type = "source", repo = NULL)'
       - name: Install dependencies
         run: Rscript -e 'install.packages(c("rmarkdown", "flexdashboard", "broom", "tidyverse", "jtools", "lubridate", "extrafont", "ggplot2", "plotly", "xml2", "rvest", "tigris", "tidycensus", "sf", "tsibble", "slider", "ggthemes"), type = "binary")'
       - name: Scrape DHEC data
