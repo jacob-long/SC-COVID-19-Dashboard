@@ -496,11 +496,15 @@ options(tigris_use_cache = TRUE)
 
 census_api_key(Sys.getenv("CENSUS_API_KEY"))
 
-acs_dat <- get_acs("county", state = "SC", 
-                   variables = c(population = "B01003_001"),
-                   year = 2018, survey = "acs5",
-                   geometry = TRUE, keep_geo_vars = FALSE) %>%
-  dplyr::select(fips = GEOID, population = estimate, geometry)
+# Too many 404 errors trying to download this data with GH Actions
+# acs_dat <- get_acs("county", state = "SC", 
+#                    variables = c(population = "B01003_001"),
+#                    year = 2018, survey = "acs5",
+#                    geometry = TRUE, keep_geo_vars = FALSE) %>%
+#   dplyr::select(fips = GEOID, population = estimate, geometry)
+# saveRDS(acs_dat, "acs_dat.RDS")
+
+acs_dat <- readRDS("acs_dat.RDS")
 
 nytc <- 
   read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv") %>%
