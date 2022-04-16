@@ -32,115 +32,91 @@ library(slider)
 
 extrafont::font_import("./IBM-Plex-Sans", prompt = FALSE)
 
-states <- read_csv("http://covidtracking.com/api/states/daily.csv") %>%
+# Grab testing data from healthdata.gov
+tests <- read_csv("https://healthdata.gov/api/views/j8mb-icvb/rows.csv?accessType=DOWNLOAD") %>%
+  filter(state == "SC")
+# They are separated into one row each for positive and negative test results :|
+neg_tests <- filter(tests, overall_outcome == "Negative") %>%
+  transmute(
+    new_negatives = new_results_reported,
+    date = date
+  )
+pos_tests <- filter(tests, overall_outcome == "Positive") %>%
+  transmute(
+    new_positives = new_results_reported,
+    date = date
+  )
+
+tests <- inner_join(neg_tests, pos_tests, by = "date") %>%
+  transmute(
+    date = date,
+    new_positives = new_positives,
+    new_tests = new_positives + new_negatives,
+    pos_rate = new_positives/new_tests
+  )
+
+# Grab hospitalization data from healthdata.gov
+hosp <- read_csv("https://healthdata.gov/api/views/g62h-syeh/rows.csv?accessType=DOWNLOAD") %>% 
+  filter(state == "SC") %>%
+  arrange(date) %>%
+  mutate(
+    hospitalized = total_adult_patients_hospitalized_confirmed_and_suspected_covid + total_pediatric_patients_hospitalized_confirmed_and_suspected_covid
+  ) %>%
+  select(
+    date, hospitalized
+  ) %>%
+  mutate(
+    hospitalized = ifelse(is.na(hospitalized), yes = 0, no = hospitalized)
+  )
+
+# Grab hospitalization data from COVID tracking project (now defunct)
+hosp_old <- read_csv("https://api.covidtracking.com/v1/states/daily.csv") %>%
   mutate(
     date = lubridate::as_date(as.character(date))
   ) %>%
-  bind_rows(mutate(read_csv("https://covidtracking.com/api/v1/states/current.csv"), date = lubridate::today("America/New_York"))) %>%
-  # filter(state %in% c("NY", "CO", "FL", "MA", "MN", "CA", "VA", "PA")) %>%
-  arrange(state, date) %>%
-  group_by(state) %>%
+  filter(state == "SC") %>%
+  arrange(date) %>%
   filter(date != lag(date)) %>%
-  mutate(
-    new_positives = positive - lag(positive),
-    tests = positive + negative,
-    icu = inIcuCurrently,
+  select(
+    date = date,
     hospital = hospitalizedCurrently,
-    deaths = death,
-    new_tests = tests - lag(tests),
-    new_hospital = hospital - lag(hospital),
-    new_hospital2 = hospitalizedCurrently - lag(hospitalizedCurrently),
-    new_deaths = death - lag(death),
-    new_icu = icu - lag(icu),
-    new_icu2 = inIcuCumulative - lag(inIcuCumulative),
-    new_icu = case_when(
-      is.na(icu) & !is.na(onVentilatorCurrently) ~ onVentilatorCurrently - lag(onVentilatorCurrently),
-      TRUE ~ new_icu
-    ),
-    new_icu2 = case_when(
-      is.na(inIcuCumulative) & !is.na(onVentilatorCumulative) ~ onVentilatorCumulative - lag(onVentilatorCumulative),
-      TRUE ~ new_icu2
-    ),
-    pos_rate = new_positives/new_tests,
   )
 
-sc <- filter(states, state == "SC")
-sc$new_deaths[sc$date > as.Date("2020-03-05") & sc$date < as.Date("2020-03-15")] <- 0
-# sc$reporting_backlog <- FALSE
-# sc$reporting_backlog[sc$date %in% c(as.Date("2020-04-30"), as.Date("2020-07-08"))] <- TRUE
+# Replacing missing government data with COVID tracking project data
+hosp$hospitalized[hosp$date < as_date("2020-07-26")] <-
+  c(rep(NA,3), hosp_old$hospital[hosp_old$date < as_date("2020-07-26")])
 
-dhec_dat <- read_csv("scdhec_test_data.csv",
-                     col_names = c("date", "rep_pos_rate"),
-                     col_types = cols(date = col_date("%m/%d/%Y"),
-                                      rep_pos_rate = col_double()),
-                     skip = 1) %>%
-  mutate(date = date + 1)
+# Grab cases from NYTimes
+cases <- 
+  read_csv("https://github.com/nytimes/covid-19-data/raw/master/us-states.csv") %>%
+  filter(state == "South Carolina") %>%
+  mutate(
+    new_cases = cases - lag(cases),
+    new_deaths = deaths - lag(deaths)
+  )
 
-sc <- full_join(sc, dhec_dat, by = "date")
-
-dhec_cases <- read_csv("dhec_case_data.csv")
-
-sc <- full_join(sc, dhec_cases, by = "date")
+sc <- full_join(cases, tests, by = "date") %>%
+  full_join(hosp, by = "date") %>%
+  arrange(date)
 
 sc %<>%
-  ungroup() %>%
   mutate(
-    new_positives2 = new_positives,
-    new_positives = case_when(
-      !is.na(cases) ~ cases,
-      TRUE ~ new_positives
-    ),
     new_positives_roll = slide_dbl(new_positives, ~mean(.x), .before = 6),
-    new_tests = case_when(
-      !is.na(rep_pos_rate) ~ new_positives / rep_pos_rate,
-      !is.na(rep_pos_rate2) ~ new_positives / rep_pos_rate2,
-      TRUE ~ new_tests,
-    ),
+    new_cases_roll = slide_dbl(new_cases, ~mean(.x), .before = 6),
+    # New column to remove points when daily reporting ends
+    new_cases_points = ifelse(date < as_date("2021-06-01"), yes = new_cases, no = NA),
     new_tests_roll = slide_dbl(new_tests, ~mean(.x), .before = 6),
     total_tests = cumsum(replace_na(new_tests, 0)),
-    pos_rate2 = pos_rate,
-    pos_rate = case_when(
-      !is.na(rep_pos_rate) ~ rep_pos_rate,
-      !is.na(rep_pos_rate2) ~ rep_pos_rate2,
-      TRUE ~ pos_rate
-    ),
-    pos_rate_roll = slide_dbl(pos_rate, ~mean(.x), .before = 6),
-    new_deaths = case_when(
-      !is.na(deaths2) ~ deaths2,
-      dateModified == lag(dateModified) ~ NA_real_,
-      TRUE ~ new_deaths
-    ),
+    pos_rate_roll = slide_dbl(pos_rate, ~mean(.x, na.rm = T), .before = 6),
+    new_deaths_points = ifelse(date < as_date("2021-06-01"), yes = new_deaths, no = NA),
     new_deaths_roll = slide_dbl(new_deaths, ~mean(.x, na.rm = T), .before = 6),
-    hospitalizedCurrently = case_when(
-      !is.na(in_hospital) ~ in_hospital,
-      TRUE ~ hospitalizedCurrently
-    ),
-    hospitalizedCurrently = case_when(
-      hospitalizedCurrently == 1593 ~ NA_real_,
-      TRUE ~ hospitalizedCurrently
-    ),
-    hosp_roll = slide_dbl(hospitalizedCurrently, ~mean(.x), .before = 2),
-    ever_hosp_roll = slide_dbl(hospitalizedCumulative, ~mean(.x), .before = 2),
+    hosp_roll = slide_dbl(hospitalized, ~mean(.x), .before = 6),
     day_of_week = factor(wday(date)),
     day_of_week = relevel(day_of_week, ref = "7")
   ) %>%
   filter(!(date == today("America/New_York") & new_positives == 0))
 
-two_weeks <- function(x) {
-  seq(x[1], x[2], 21)
-}
-
-into_date <- function(x) {
-  if ("Date" %in% class(x)) {
-    format(x, "%b %e")
-  } else {
-    format(as.Date(x, origin = "1970-01-01"), "%b %e")
-  }
-}
-
-num_points <- as.numeric(range(filter(states, state == "SC")$date)[2] - 
-  range(filter(states, state == "SC")$date)[1])
-
+num_points <- as.numeric(range(sc$date)[2] - range(sc$date)[1])
 ```
 
 Statewide Statistics
@@ -149,65 +125,42 @@ Statewide Statistics
 Row {.tabset}
 -----------------------------------------------------------------------
 
-### Daily Cases and Tests
+### Daily Cases
 
 ```{r}
-ggplot(sc %>%
-         pivot_longer(c(new_tests, new_positives), names_to = "test_type") %>%
-         mutate(test_type = ifelse(test_type == "new_positives",
-                                   yes = "Positives", no = "Total")),
-       aes(x = date, y = value, colour = test_type)) +
-  # geom_smooth(se = F, n = num_points) +
-  geom_path(data = sc %>% pivot_longer(c(new_tests_roll, new_positives_roll), names_to = "test_type") %>%
-         mutate(test_type = ifelse(test_type == "new_positives_roll",
-                                   yes = "Positives", no = "Total"))) +
-  geom_point(aes(text = paste(
+ggplot(sc, aes(x = date, y = new_cases_points)) +
+  geom_point() +
+  geom_path(aes(y = new_cases_roll), color = "#73000a") +
+  geom_point(inherit.aes = F, aes(x = date, y = new_cases_roll,
+                                  text = paste(
     "Date:", date,
-    paste0("\n", ifelse(test_type == "Positives", "Positives:", "Tests:")),
-            round(value)
-    )
-  )) +
+    paste0("\nCases: ", ifelse(new_cases == 0, yes = "Not reported", no = round(new_cases)), 
+           "\nWeekly average cases: ", round(new_cases_roll))
+  )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
-  ylab("Number of tests/day") +
-  scale_colour_manual(name = NULL, values = c("#49b7fc", "#ff7b00"),
-                      breaks = c("Positives", "Total"),
-                      labels = c("Positive tests", "Total tests"),
-                      guide = NULL) +
+  ylab("Number of cases/day") +
   xlab("Date") +
   scale_y_log10(labels = scales::label_number(accuracy = 1, big.mark = ","),
                 limits = c(1, 50000)) +
   geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
-             linetype = "dashed", color = "#73000a") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
-             linetype = "dashed", color = "#ff0015") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) -> tests
-  # ggtitle("Cases and Testing") 
+  geom_vline(xintercept = as.numeric(as.Date("2021-01-01")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-03-08")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-06-01")),
+             linetype = "dotted", color = "black") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-07-03")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") -> cases_plot
 
-gtests <- ggplotly(tests, tooltip = c("text")) %>%
-  add_annotations(
-    x = c(as.numeric(as.Date("2020-03-15"))),
-    y = c(4),
-    text = c("Schools closed"),
-    showarrow = FALSE,
-    bgcolor = "#FFFFFF",
-    # bordercolor = "#000000",
-    font = list(color = c("#ff6673"),
-                family = 'IBM Plex Sans')
-  ) %>%
-  add_annotations(
-    x = c(as.numeric(as.Date("2020-03-31"))),
-    y = c(4.5),
-    text = c("Businesses closed"),
-    showarrow = FALSE,
-    bgcolor = "#FFFFFF",
-    # bordercolor = "#000000",
-    font = list(color = c("#ff0015"),
-                family = 'IBM Plex Sans')
-  ) %>%
+gcases <- ggplotly(cases_plot, tooltip = c("text")) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2020-04-07"))),
     y = c(0.25),
@@ -228,20 +181,67 @@ gtests <- ggplotly(tests, tooltip = c("text")) %>%
     font = list(color = c("#466A9F"),
                 family = 'IBM Plex Sans')
   ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-01-01"))),
+    y = c(1),
+    text = c('Vaccines available\nto high-risk'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-03-08"))),
+    y = c(1.75),
+    text = c('Vaccines widely\navailable'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-06-01"))),
+    y = c(4),
+    text = c('<i>Daily case\nreporting ends</i>'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("black"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-07-03"))),
+    y = c(0.75),
+    text = c( 'Delta variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-09-23"))),
+    y = c(1.75),
+    text = c('Booster rollout\nbegins'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-12-25"))),
+    y = c(1),
+    text = c('Omicron variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
   layout(legend = list(x = 0.8, y = 0.1)) 
-
-smooth1 <- paste0(
-  "Date: ", as.Date(round(gtests$x$data[[1]]$x), origin = "1970-01-01"), "\n",
-  "7-day average positives: ", round(10^gtests$x$data[[1]]$y)
-)
-smooth2 <- paste0(
-  "Date: ", as.Date(round(gtests$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "7-day average tests: ", round(10^gtests$x$data[[2]]$y)
-)
-
-gtests <- gtests %>% 
-  style(text = smooth1, traces = 1) %>%
-  style(text = smooth2, traces = 2)
 
 font <- list(
   family = "IBM Plex Sans",
@@ -254,12 +254,12 @@ label <- list(
   font = font
 )
 
-gtests <- gtests %>% 
+gcases <- gcases %>% 
   style(hoverlabel = label) %>%
   layout(font = font) %>%
   layout(hovermode = "x")
 
-gtests
+gcases
 ```
 
 ### Positive Test %
@@ -271,23 +271,27 @@ ggplot(sc, aes(x = date, y = pos_rate)) +
     "\nPercentage positive =", paste0(round(pos_rate * 100, 1), "%")
     )
   )) + 
-  # geom_smooth(se = F, color = "black", n = num_points) +
   geom_path(aes(y = pos_rate_roll)) +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("% of tests that are positive") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, .25)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, .30)) +
   xlab("Date") +
   geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
-             linetype = "dashed", color = "#73000a") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
-             linetype = "dashed", color = "#ff0015") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  # scale_x_date(date_breaks = "14 days", date_labels = "%b %e") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) -> pos_rate
-  # ggtitle("Positive test rate") -> pos_rate
+  geom_vline(xintercept = as.numeric(as.Date("2021-01-01")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-03-08")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-07-03")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y",
+               limits = c(as_date("2020-03-15"), today())) -> pos_rate
 
 gpos <- ggplotly(pos_rate, tooltip = c("text"))
 
@@ -309,6 +313,75 @@ smooth1 <- paste0(
 )
 
 gpos <- gpos %>% 
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-04-07"))),
+    y = c(0.01),
+    text = c( '"Home or Work"\norder'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-05-04"))),
+    y = c(0.25),
+    text = c('"Home or Work"\norder lifted'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-01-01"))),
+    y = c(0.01),
+    text = c('Vaccines available\nto high-risk'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-03-08"))),
+    y = c(0.25),
+    text = c('Vaccines widely\navailable'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-07-03"))),
+    y = c(0.3),
+    text = c( 'Delta variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-09-23"))),
+    y = c(0.25),
+    text = c('Booster rollout\nbegins'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-12-25"))),
+    y = c(0.005),
+    text = c('Omicron variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')) %>%
   style(text = smooth1, traces = 2) %>%
   style(hoverlabel = label) %>%
   layout(font = font) %>%
@@ -324,27 +397,36 @@ Row {.tabset}
 ### Deaths per day
 
 ```{r}
-ggplot(sc, aes(x = date, y = new_deaths)) +
-  geom_point(aes(text = paste(
+ggplot(sc, aes(x = date, y = new_deaths_points)) +
+  geom_point() +
+  geom_path(aes(y = new_deaths_roll), color = "#73000a") +
+  geom_point(inherit.aes = F, aes(x = date, y = new_deaths_roll,
+                                  text = paste(
     "Date:", date,
-    "\nDeaths =", new_deaths
-    )
-  )) + 
-  # geom_smooth(se = F, color = "black", n = num_points) +
-  geom_path(aes(y = new_deaths_roll)) +
+    paste0("\nDeaths: ", ifelse(new_deaths == 0, yes = "Not reported", no = round(new_deaths)), 
+           "\nWeekly average deaths: ", round(new_deaths_roll))
+  )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("Deaths/day") +
+  ylim(0, 150) +
   xlab("Date") +
   geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
-             linetype = "dashed", color = "#73000a") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
-             linetype = "dashed", color = "#ff0015") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) -> deaths
-  # ggtitle("New deaths") -> deaths
+  geom_vline(xintercept = as.numeric(as.Date("2021-01-01")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-03-08")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-06-01")),
+             linetype = "dotted", color = "black") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-07-03")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") -> deaths
 
 gdeath <- ggplotly(deaths, tooltip = "text")
 
@@ -353,26 +435,93 @@ smooth1 <- paste0(
   "7-day average # deaths = ", round(gdeath$x$data[[2]]$y, 0)
 )
 
-# ann <- list(
-#  x = as.numeric(filter(sc, reporting_backlog == TRUE)$date),
-#  y = filter(sc, reporting_backlog == TRUE)$new_deaths,
-#  xref = "x",
-#  yref = "y",
-#  text = "Reporting backlog",
-#  showarrow = TRUE,
-#  arrowhead = 6,
-#  arrowsize = 0.01,
-#  ax = -50,
-#  ay = 40,
-#  bgcolor = "#FFFFFF",
-#  font = list(
-#    color = "#000000",
-#    family = "IBM Plex Sans"
-#  )
-# )
-
-gdeath <- gdeath %>%
-  style(text = smooth1, traces = 2) %>%
+gdeath <- ggplotly(deaths, tooltip = "text") %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-04-07"))),
+    y = c(135),
+    text = c( '"Home or Work"\norder'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-05-04"))),
+    y = c(100),
+    text = c('"Home or Work"\norder lifted'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-01-01"))),
+    y = c(125),
+    text = c('Vaccines available\nto high-risk'),
+    showarrow = TRUE,
+    bgcolor = "#FFFFFF",
+    ax = -75,
+    ay = 0,
+    xref = "x",
+    yref = "y",
+    arrowcolor = c("#466A9F"),
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-03-08"))),
+    y = c(150),
+    text = c('Vaccines widely\navailable'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-06-01"))),
+    y = c(75),
+    text = c('<i>Daily\nreporting ends</i>'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("black"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-07-03"))),
+    y = c(115),
+    text = c( 'Delta variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-09-23"))),
+    y = c(150),
+    text = c('Booster rollout\nbegins'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-12-25"))),
+    y = c(100),
+    text = c('Omicron variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  # style(text = smooth1, traces = 2) %>%
   style(hoverlabel = label) %>%
   layout(font = font) %>%
   layout(hovermode = "x")
@@ -383,28 +532,34 @@ gdeath
 ### Current Hospitalizations
 
 ```{r}
-ggplot(sc, aes(x = date, y = hospitalizedCurrently)) +
-  geom_point(aes(text = paste(
+ggplot(sc, aes(x = date, y = hospitalized)) +
+  geom_point() +
+  geom_path(aes(y = hosp_roll), color = "#73000a") +
+  geom_point(inherit.aes = F, aes(x = date, y = hosp_roll,
+                                  text = paste(
     "Date:", date,
-    "\nIn hospital =", hospitalizedCurrently
-    )
-  )) + 
-  # geom_smooth(se = F, color = "black", n = num_points) +
-  geom_path(aes(y = hosp_roll)) +
+    paste0("\nHospitalized: ", no = round(hospitalized), 
+           "\nWeekly average in hospital: ", round(hosp_roll))
+  )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
-  ylim(0, max(sc$hospitalizedCurrently, na.rm = T) + 50) +
-  ylab("Currently hospitalized") +
+  ylab("Currently in hospital") +
+  ylim(0, 3000) +
   xlab("Date") +
   geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
-             linetype = "dashed", color = "#73000a") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
-             linetype = "dashed", color = "#ff0015") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) -> hosp
-  # ggtitle("Current number in hospitals") -> hosp
+  geom_vline(xintercept = as.numeric(as.Date("2021-01-01")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-03-08")),
+             linetype = "dashed", color = "#466A9F") + 
+  geom_vline(xintercept = as.numeric(as.Date("2021-07-03")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
+             linetype = "dashed", color = "#466A9F") +
+  geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y")  -> hosp
 
 ghosp <- ggplotly(hosp, tooltip = "text")
 
@@ -414,12 +569,11 @@ smooth1 <- paste0(
 )
 
 ann <- list(
-  x = c(as.numeric(as.Date("2020-04-16")), as.numeric(as.Date("2020-07-18"))),
-  y = c(500, 750),
+  x = c(as.numeric(as.Date("2020-04-16"))),
+  y = c(200),
   xref = "x",
   yref = "y",
-  text = c("Number of currently\nhospitalized not reported\nuntil May", 
-           "Hospital reporting temporarily\nstopped in mid-July"),
+  text = c("Not reported\nuntil May"),
   showarrow = FALSE,
   arrowhead = 6,
   arrowsize = 0.01,
@@ -432,57 +586,87 @@ ann <- list(
   )
 )
 
-ghosp <- ghosp %>%
+ghosp <- ggplotly(hosp, tooltip = "text") %>%
   layout(annotations = ann) %>%
-  style(text = smooth1, traces = 2) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-04-07"))),
+    y = c(1000),
+    text = c( '"Home or Work"\norder'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2020-05-04"))),
+    y = c(2000),
+    text = c('"Home or Work"\norder lifted'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-01-01"))),
+    y = c(200),
+    text = c('Vaccines available\nto high-risk'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-03-08"))),
+    y = c(2600),
+    text = c('Vaccines widely\navailable'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-07-03"))),
+    y = c(3000),
+    text = c( 'Delta variant\nbecomes dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-09-23"))),
+    y = c(200),
+    text = c('Booster rollout\nbegins'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#466A9F"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2021-12-25"))),
+    y = c(3000),
+    text = c('Omicron variant\nbecomes dominant'),
+    showarrow = TRUE,
+    bgcolor = "#FFFFFF",
+    ax = 75,
+    ay = 0,
+    xref = "x",
+    yref = "y",
+    arrowcolor = c("#73000a"),
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  # style(text = smooth1, traces = 2) %>%
   style(hoverlabel = label) %>%
   layout(font = font) %>%
   layout(hovermode = "x")
 
 ghosp
-```
-
-### Total Hospitalizations
-
-```{r}
-ggplot(sc, aes(x = date, y = hospitalizedCumulative)) +
-  geom_point(aes(text = paste(
-    "Date:", date,
-    "\nEver hospitalized =", hospitalizedCumulative
-    )
-  )) + 
-  # geom_smooth(se = F, color = "black", n = num_points) +
-  geom_path(aes(y = ever_hosp_roll)) +
-  theme_nice(base_family = "IBM Plex Sans") +
-  ylim(0, max(sc$hospitalizedCumulative, na.rm = T) + 50) +
-  ylab("Total ever hospitalized") +
-  xlab("Date") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-05-04")),
-             linetype = "dashed", color = "#466A9F") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-04-07")),
-             linetype = "dashed", color = "#73000a") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-31")),
-             linetype = "dashed", color = "#ff0015") +
-  geom_vline(xintercept = as.numeric(as.Date("2020-03-15")),
-             linetype = "dashed", color = "#ff6673") +
-  scale_x_continuous(breaks = two_weeks, labels = into_date) -> hosp2
-  # ggtitle("Cumulative # of hospitalizations") -> hosp2
-
-ghosp2 <- ggplotly(hosp2, tooltip = "text")
-
-smooth1 <- paste0(
-  "Date: ", as.Date(round(ghosp2$x$data[[2]]$x), origin = "1970-01-01"), "\n",
-  "4-day average # total hospitalized = ", round(ghosp2$x$data[[2]]$y, 0)
-)
-
-ghosp2 <- ghosp2 %>%
-  # layout(annotations = ann) %>%
-  style(text = smooth1, traces = 2) %>%
-  style(hoverlabel = label) %>%
-  layout(font = font) %>%
-  layout(hovermode = "x")
-
-ghosp2
 ```
 
 Maps
