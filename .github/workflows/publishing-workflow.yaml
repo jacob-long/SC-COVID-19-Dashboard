@@ -2,7 +2,6 @@ on:
   push:
     paths:
       - sc_dashboard.Rmd
-      - dhec_scraping.R
       - .github/workflows/publishing-workflow.yaml
   schedule: 
   - cron: '35 15,18,21 * * *' 
@@ -31,5 +30,5 @@ jobs:
         run: |
           git config --global user.name "Runner"
           git config --global user.email "jlongrc@gmail.com"
-          git commit sc_dashboard.html dhec_case_data.csv -m 'Re-build sc_dashboard.html'
+          git commit sc_dashboard.html -m 'Re-build sc_dashboard.html'
           git push origin 
