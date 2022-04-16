@@ -8,8 +8,6 @@ output:
     css: sc_dash.css
     source_code: "https://github.com/jacob-long/SC-COVID-19-Dashboard"
     navbar:
-      # - {title: "SC DHEC", href: "https://scdhec.gov", icon: "fas fa-notes-medical"}
-      # - {title: "COVID Tracking Project", href: "https://covidtracking.com", icon: "fa-table"}
       - {title: "Jacob Long", href: "https://jacob-long.com", icon: "fa-user-edit"}
     
 ---
@@ -271,7 +269,8 @@ ggplot(sc, aes(x = date, y = pos_rate)) +
     "\nPercentage positive =", paste0(round(pos_rate * 100, 1), "%")
     )
   )) + 
-  geom_path(aes(y = pos_rate_roll), color = "#73000a") +
+  geom_path(data = filter(sc, date > as_date("2020-03-15")),
+            aes(y = pos_rate_roll), color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("% of tests that are positive") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, .30)) +
@@ -290,8 +289,7 @@ ggplot(sc, aes(x = date, y = pos_rate)) +
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
              linetype = "dashed", color = "#ff6673") +
-  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y",
-               limits = c(as_date("2020-03-15"), today())) -> pos_rate
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") -> pos_rate
 
 gpos <- ggplotly(pos_rate, tooltip = c("text"))
 
@@ -334,7 +332,7 @@ gpos <- gpos %>%
                 family = 'IBM Plex Sans')
   ) %>%
   add_annotations(
-    x = c(as.numeric(as.Date("2021-12-20"))),
+    x = c(as.numeric(as.Date("2020-12-20"))),
     y = c(0.02),
     text = c('Vaccines available\nto high-risk'),
     showarrow = FALSE,
@@ -379,7 +377,7 @@ gpos <- gpos %>%
     text = c('Omicron variant\nbecomes dominant'),
     showarrow = TRUE,
     bgcolor = "#FFFFFF",
-    ax = 75,
+    ax = 125,
     ay = 0,
     xref = "x",
     yref = "y",
@@ -657,7 +655,7 @@ ghosp <- ggplotly(hosp, tooltip = "text") %>%
     text = c('Omicron variant\nbecomes dominant'),
     showarrow = TRUE,
     bgcolor = "#FFFFFF",
-    ax = 75,
+    ax = 125,
     ay = 0,
     xref = "x",
     yref = "y",
