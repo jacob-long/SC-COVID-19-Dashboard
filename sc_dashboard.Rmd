@@ -163,7 +163,7 @@ ggplot(sc, aes(x = date, y = new_cases_points)) +
 gcases <- ggplotly(cases_plot, tooltip = c("text")) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2020-04-07"))),
-    y = c(0.25),
+    y = c(4),
     text = c( '"Home or Work"\norder'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -173,7 +173,7 @@ gcases <- ggplotly(cases_plot, tooltip = c("text")) %>%
   ) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2020-05-04"))),
-    y = c(1),
+    y = c(0.35),
     text = c('"Home or Work"\norder lifted'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -183,7 +183,7 @@ gcases <- ggplotly(cases_plot, tooltip = c("text")) %>%
   ) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2021-01-01"))),
-    y = c(1),
+    y = c(0.5),
     text = c('Vaccines available\nto high-risk'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -271,7 +271,7 @@ ggplot(sc, aes(x = date, y = pos_rate)) +
     "\nPercentage positive =", paste0(round(pos_rate * 100, 1), "%")
     )
   )) + 
-  geom_path(aes(y = pos_rate_roll)) +
+  geom_path(aes(y = pos_rate_roll), color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("% of tests that are positive") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, .30)) +
@@ -314,8 +314,8 @@ smooth1 <- paste0(
 
 gpos <- gpos %>% 
   add_annotations(
-    x = c(as.numeric(as.Date("2020-04-07"))),
-    y = c(0.01),
+    x = c(as.numeric(as.Date("2020-03-28"))),
+    y = c(0.02),
     text = c( '"Home or Work"\norder'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -325,7 +325,7 @@ gpos <- gpos %>%
   ) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2020-05-04"))),
-    y = c(0.25),
+    y = c(0.27),
     text = c('"Home or Work"\norder lifted'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -334,8 +334,8 @@ gpos <- gpos %>%
                 family = 'IBM Plex Sans')
   ) %>%
   add_annotations(
-    x = c(as.numeric(as.Date("2021-01-01"))),
-    y = c(0.01),
+    x = c(as.numeric(as.Date("2021-12-20"))),
+    y = c(0.02),
     text = c('Vaccines available\nto high-risk'),
     showarrow = FALSE,
     bgcolor = "#FFFFFF",
@@ -375,11 +375,15 @@ gpos <- gpos %>%
   ) %>%
   add_annotations(
     x = c(as.numeric(as.Date("2021-12-25"))),
-    y = c(0.005),
+    y = c(0.30),
     text = c('Omicron variant\nbecomes dominant'),
-    showarrow = FALSE,
+    showarrow = TRUE,
     bgcolor = "#FFFFFF",
-    # bordercolor = "#000000",
+    ax = 75,
+    ay = 0,
+    xref = "x",
+    yref = "y",
+    arrowcolor = "#73000a",
     font = list(color = c("#73000a"),
                 family = 'IBM Plex Sans')) %>%
   style(text = smooth1, traces = 2) %>%
@@ -746,7 +750,7 @@ inner_join(acs_dat, nytc, by = "fips") %>%
   ggthemes::theme_map() +
   # ggtitle("Total cases per capita") +
   scale_fill_gradient(low = "white", high = scales::muted("red"),
-                      limits = c(10, 70), oob = scales::squish) -> scmap
+                      limits = c(1, 50), oob = scales::squish) -> scmap
 
 ann <- list(
   y = c(34.0007100, 32.784618, 34.852619, 33.689060),
