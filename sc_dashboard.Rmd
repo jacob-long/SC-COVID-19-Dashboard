@@ -136,7 +136,7 @@ ggplot(sc, aes(x = date, y = new_cases_points)) +
            "\nWeekly average cases: ", round(new_cases_roll))
   )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
-  ylab("Number of cases/day") +
+  ylab("New cases/day") +
   xlab("Date") +
   scale_y_log10(labels = scales::label_number(accuracy = 1, big.mark = ","),
                 limits = c(1, 50000)) +
