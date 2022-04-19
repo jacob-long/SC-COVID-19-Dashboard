@@ -133,7 +133,7 @@ ggplot(sc, aes(x = date, y = new_cases_points)) +
                                   text = paste(
     "Date:", date,
     paste0("\nCases: ", ifelse(new_cases == 0, yes = "Not reported", no = round(new_cases)), 
-           "\nWeekly average cases: ", round(new_cases_roll))
+           "\n7-day average deaths per day: ", round(new_cases_roll))
   )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("New cases/day") +
@@ -406,7 +406,7 @@ ggplot(sc, aes(x = date, y = new_deaths_points)) +
                                   text = paste(
     "Date:", date,
     paste0("\nDeaths: ", ifelse(new_deaths == 0, yes = "Not reported", no = round(new_deaths)), 
-           "\nWeekly average deaths: ", round(new_deaths_roll))
+           "\n7-day average deaths per day: ", round(new_deaths_roll))
   )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("Deaths/day") +
@@ -541,7 +541,7 @@ ggplot(sc, aes(x = date, y = hospitalized)) +
                                   text = paste(
     "Date:", date,
     paste0("\nHospitalized: ", no = round(hospitalized), 
-           "\nWeekly average in hospital: ", round(hosp_roll))
+           "\n7-day average number in hospital: ", round(hosp_roll))
   )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("Currently in hospital") +
