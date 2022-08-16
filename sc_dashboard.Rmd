@@ -133,7 +133,7 @@ ggplot(sc, aes(x = date, y = new_cases_points)) +
                                   text = paste(
     "Date:", date,
     paste0("\nCases: ", ifelse(new_cases == 0, yes = "Not reported", no = round(new_cases)), 
-           "\n7-day average deaths per day: ", round(new_cases_roll))
+           "\n7-day average cases per day: ", round(new_cases_roll))
   )), size = 0.1, color = "#73000a") +
   theme_nice(base_family = "IBM Plex Sans") +
   ylab("New cases/day") +
@@ -391,7 +391,7 @@ gpos <- gpos %>%
     text = c('Omicron variant\nbecomes dominant'),
     showarrow = TRUE,
     bgcolor = "#FFFFFF",
-    ax = 125,
+    ax = 150,
     ay = 0,
     xref = "x",
     yref = "y",
