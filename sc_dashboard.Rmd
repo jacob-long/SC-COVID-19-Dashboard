@@ -156,6 +156,8 @@ ggplot(sc, aes(x = date, y = new_cases_points)) +
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
              linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2022-06-01")),
+             linetype = "dashed", color = "#ff6673") +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") -> cases_plot
 
 gcases <- ggplotly(cases_plot, tooltip = c("text")) %>%
@@ -239,6 +241,16 @@ gcases <- ggplotly(cases_plot, tooltip = c("text")) %>%
     font = list(color = c("#73000a"),
                 family = 'IBM Plex Sans')
   ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2022-06-01"))),
+    y = c(1),
+    text = c('Omicron BA.4/BA.5\nbecome dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
   layout(legend = list(x = 0.8, y = 0.1)) 
 
 font <- list(
@@ -288,6 +300,8 @@ ggplot(sc, aes(x = date, y = pos_rate)) +
   geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2022-06-01")),
              linetype = "dashed", color = "#ff6673") +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") -> pos_rate
 
@@ -384,6 +398,19 @@ gpos <- gpos %>%
     arrowcolor = "#73000a",
     font = list(color = c("#73000a"),
                 family = 'IBM Plex Sans')) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2022-06-01"))),
+    y = c(0.02),
+    text = c('Omicron BA.4/BA.5\nbecome dominant'),
+    showarrow = TRUE,
+    bgcolor = "#FFFFFF",
+    ax = 50,
+    ay = 0,
+    xref = "x",
+    yref = "y",
+    arrowcolor = "#73000a",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')) %>%
   style(text = smooth1, traces = 2) %>%
   style(hoverlabel = label) %>%
   layout(font = font) %>%
@@ -427,6 +454,8 @@ ggplot(sc, aes(x = date, y = new_deaths_points)) +
   geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2022-06-01")),
              linetype = "dashed", color = "#ff6673") +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") -> deaths
 
@@ -523,6 +552,16 @@ gdeath <- ggplotly(deaths, tooltip = "text") %>%
     font = list(color = c("#73000a"),
                 family = 'IBM Plex Sans')
   ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2022-06-01"))),
+    y = c(100),
+    text = c('Omicron BA.4/BA.5\nbecome dominant'),
+    showarrow = FALSE,
+    bgcolor = "#FFFFFF",
+    # bordercolor = "#000000",
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
   # style(text = smooth1, traces = 2) %>%
   style(hoverlabel = label) %>%
   layout(font = font) %>%
@@ -560,6 +599,8 @@ ggplot(sc, aes(x = date, y = hospitalized)) +
   geom_vline(xintercept = as.numeric(as.Date("2021-09-23")),
              linetype = "dashed", color = "#466A9F") +
   geom_vline(xintercept = as.numeric(as.Date("2021-12-25")),
+             linetype = "dashed", color = "#ff6673") +
+  geom_vline(xintercept = as.numeric(as.Date("2022-06-01")),
              linetype = "dashed", color = "#ff6673") +
   scale_x_date(date_breaks = "3 months", date_labels = "%b %Y")  -> hosp
 
@@ -656,6 +697,20 @@ ghosp <- ggplotly(hosp, tooltip = "text") %>%
     showarrow = TRUE,
     bgcolor = "#FFFFFF",
     ax = 125,
+    ay = 0,
+    xref = "x",
+    yref = "y",
+    arrowcolor = c("#73000a"),
+    font = list(color = c("#73000a"),
+                family = 'IBM Plex Sans')
+  ) %>%
+  add_annotations(
+    x = c(as.numeric(as.Date("2022-06-01"))),
+    y = c(2000),
+    text = c('Omicron BA.4/BA.5\nbecome dominant'),
+    showarrow = TRUE,
+    bgcolor = "#FFFFFF",
+    ax = 0,
     ay = 0,
     xref = "x",
     yref = "y",
